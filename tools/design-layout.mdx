@@ -1,0 +1,423 @@
+---
+title: "Design & layout tools"
+description: "Audit markup, scaffold layouts, manage design tokens, generate color palettes, and produce UI images with Gemini."
+---
+
+## analyze\_layout
+
+Audits HTML or JSX markup for layout issues including accessibility violations, spacing problems, typography anti-patterns, and framework-specific convention errors. Returns a scored list of issues with actionable suggestions.
+
+### Parameters
+
+<ParamField body="markup" type="string" required>
+  HTML or JSX string to analyze.
+</ParamField>
+
+<ParamField body="stack" type="object" required>
+  CSS stack metadata.
+
+  <Expandable title="stack fields">
+    <ParamField body="css_mode" type="string" required>
+      CSS strategy in use. One of `tailwind-v4` or `plain-css`.
+    </ParamField>
+
+    <ParamField body="framework" type="string" required>
+      UI framework. Examples: `next`, `astro`, `sveltekit`, `nuxt`, `spa-vite`.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="page_type" type="string">
+  Hint for page-specific checks. One of `landing`, `dashboard`, or `form`.
+</ParamField>
+
+<ParamField body="device_focus" type="string">
+  Scope responsive checks. One of `mobile`, `desktop`, or `both`.
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "analyze_layout",
+  "arguments": {
+    "markup": "<section class=\"hero-section\"><div class=\"hero-container\"><h1 class=\"hero-heading\">Welcome</h1><img src=\"/hero.png\"><div class=\"hero-cta\"><a href=\"#\" class=\"btn-primary\">Get Started</a></div></div></section>",
+    "stack": {
+      "css_mode": "plain-css",
+      "framework": "astro"
+    },
+    "page_type": "landing",
+    "device_focus": "both"
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "summary": "Found 1 error, 1 warning in astro/plain-css layout.",
+  "issues": [
+    {
+      "severity": "error",
+      "category": "accessibility",
+      "description": "One or more <img> elements are missing alt attributes.",
+      "suggestion": "Add descriptive alt text to all images, e.g. alt=\"Description of image\"."
+    },
+    {
+      "severity": "warning",
+      "category": "responsive",
+      "description": "No responsive breakpoints or media queries detected.",
+      "suggestion": "Add responsive classes (sm:, md:, lg: in Tailwind v4) or @media queries for mobile support."
+    }
+  ],
+  "score": 70
+}
+```
+
+---
+
+## suggest\_layout
+
+Generates a ready-to-use layout scaffold based on a description, tech stack, and desired fidelity level. Returns file snippets and CSS ready to paste into your project.
+
+### Parameters
+
+<ParamField body="description" type="string" required>
+  Plain-language description of the layout you need. For example: "SaaS pricing page with three-tier card grid".
+</ParamField>
+
+<ParamField body="stack" type="object" required>
+  CSS stack metadata. Same shape as `analyze_layout` — requires `css_mode` and `framework`.
+</ParamField>
+
+<ParamField body="fidelity" type="string" required>
+  Output fidelity. One of `wireframe`, `mid`, or `production`.
+</ParamField>
+
+<ParamField body="tokens_profile" type="object">
+  Existing token values to fold into the generated CSS (for example, your brand colors).
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "suggest_layout",
+  "arguments": {
+    "description": "SaaS pricing page with three-tier card grid and a prominent CTA",
+    "stack": {
+      "css_mode": "tailwind-v4",
+      "framework": "next"
+    },
+    "fidelity": "production"
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "layout_name": "SaaSPricingLayout",
+  "files": [
+    {
+      "path": "app/components/SaaSPricingLayout.tsx",
+      "snippet": "// app/components/SaaSPricingLayout.tsx\n// SaaS pricing page with three-tier card grid and a prominent CTA\n\nexport function SaaSPricingLayout() {\n  return (\n    <section className=\"py-24 px-4\">\n      <div className=\"max-w-7xl mx-auto\">\n        <h1 className=\"text-5xl font-bold tracking-tight\">\n          Main Heading\n        </h1>\n        <p className=\"mt-6 text-xl text-muted-foreground\">\n          Supporting description text goes here.\n        </p>\n        <div className=\"mt-10 flex gap-4\">\n          <a href=\"#\" className=\"bg-primary text-white px-8 py-3 rounded-lg font-semibold hover:opacity-90 transition\">\n            Get Started\n          </a>\n          <a href=\"#\" className=\"border border-primary text-primary px-8 py-3 rounded-lg font-semibold hover:bg-surface transition\">\n            Learn More\n          </a>\n        </div>\n      </div>\n    </section>\n  );\n}"
+    }
+  ],
+  "css_snippets": [
+    {
+      "path": "app/globals.css",
+      "snippet": "@import \"tailwindcss\";\n\n@theme {\n  --color-primary: #3b82f6;\n  --color-background: #ffffff;\n  --color-surface: #f8fafc;\n  --color-text: #1e293b;\n  --spacing-section: 4rem;\n}\n\n@layer base {\n  body {\n    @apply bg-[--color-background] text-[--color-text];\n  }\n}\n\n@layer components {\n  .saaspricinglayout-container {\n    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;\n  }\n}"
+    }
+  ],
+  "rationale": "Generated a production fidelity layout for next using tailwind-v4. CSS tokens are defined in @theme layer — no tailwind.config.js required."
+}
+```
+
+---
+
+## manage\_tokens
+
+Reads or updates design tokens (colors, spacing, typography) for your project. Use `read` to inspect current defaults, `plan-update` to preview a diff, and `apply-update` to apply and receive the merged token map.
+
+### Parameters
+
+<ParamField body="mode" type="string" required>
+  Operation to perform. One of `read`, `plan-update`, or `apply-update`.
+</ParamField>
+
+<ParamField body="css_mode" type="string" required>
+  Controls the CSS syntax used in the `instructions` output. One of `tailwind-v4` or `plain-css`.
+</ParamField>
+
+<ParamField body="scope" type="string" required>
+  Token group to read or update. One of `colors`, `spacing`, `typography`, or `all`.
+</ParamField>
+
+<ParamField body="proposal" type="object">
+  Key/value token pairs to apply. Required when `mode` is `plan-update` or `apply-update`.
+  Keys must match CSS custom property names, for example `--color-primary`.
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "manage_tokens",
+  "arguments": {
+    "mode": "plan-update",
+    "css_mode": "tailwind-v4",
+    "scope": "colors",
+    "proposal": {
+      "--color-primary": "#6366f1",
+      "--color-secondary": "#a78bfa"
+    }
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "current_tokens": {
+    "--color-background": "#ffffff",
+    "--color-muted": "#64748b",
+    "--color-primary": "#3b82f6",
+    "--color-secondary": "#8b5cf6",
+    "--color-surface": "#f8fafc",
+    "--color-text": "#1e293b"
+  },
+  "diff": {
+    "--color-primary": {
+      "old": "#3b82f6",
+      "new": "#6366f1"
+    },
+    "--color-secondary": {
+      "old": "#8b5cf6",
+      "new": "#a78bfa"
+    }
+  },
+  "instructions": "Add or update in @theme { } block:\n{\"--color-primary\":\"#6366f1\",\"--color-secondary\":\"#a78bfa\"}"
+}
+```
+
+---
+
+## suggest\_color\_palettes
+
+Returns a ranked list of named color palettes for a given use case and mood. Each palette includes a full token map (background, surface, primary, accent, text, muted) ready to drop into `manage_tokens`.
+
+### Parameters
+
+<ParamField body="use_case" type="string" required>
+  The context you are designing for. For example: `"SaaS dashboard"`, `"marketing landing page"`, `"e-commerce shop"`.
+</ParamField>
+
+<ParamField body="brand_keywords" type="string[]">
+  Optional list of brand keywords used to improve matching. For example: `["fintech", "trust", "enterprise"]`.
+</ParamField>
+
+<ParamField body="mood" type="string">
+  Desired emotional tone. For example: `calm`, `bold`, `minimal`, `professional`, `premium`.
+</ParamField>
+
+<ParamField body="count" type="number">
+  Number of palettes to return. Defaults to `3`.
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "suggest_color_palettes",
+  "arguments": {
+    "use_case": "fintech dashboard",
+    "brand_keywords": ["trust", "banking", "enterprise"],
+    "mood": "serious",
+    "count": 2
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "palettes": [
+    {
+      "name": "Fintech Calm Blue",
+      "description": "Professional and trustworthy deep blue palette for financial applications. Optimized for serious mood.",
+      "tokens": {
+        "background": "#0b1220",
+        "surface": "#020617",
+        "primary": "#22d3ee",
+        "primary-soft": "#0f172a",
+        "accent": "#facc15",
+        "text": "#e2e8f0",
+        "muted": "#475569"
+      }
+    },
+    {
+      "name": "SaaS Indigo",
+      "description": "Modern indigo palette for SaaS dashboards and productivity tools.",
+      "tokens": {
+        "background": "#ffffff",
+        "surface": "#f8fafc",
+        "primary": "#6366f1",
+        "primary-soft": "#eef2ff",
+        "accent": "#f59e0b",
+        "text": "#1e293b",
+        "muted": "#64748b"
+      }
+    }
+  ]
+}
+```
+
+---
+
+## generate\_ui\_image
+
+Generates a UI image using the Gemini Vision API. You can request wireframes, high-fidelity mockups, or UI illustrations. The image is saved to disk at `output_path`.
+
+<Note>
+  This tool requires a Gemini API key. Use `configure_gemini` to set your key before calling this tool.
+</Note>
+
+### Parameters
+
+<ParamField body="prompt" type="string" required>
+  Visual description of the UI to generate. Describe layout zones, chart types, color palette, and visual theme for best results.
+</ParamField>
+
+<ParamField body="style" type="string" required>
+  Rendering style. One of `wireframe`, `mockup`, or `illustration`.
+
+  | Value | Best for |
+  |---|---|
+  | `mockup` | High-fidelity production screens |
+  | `wireframe` | Low-fidelity structure and layout exploration |
+  | `illustration` | Colorful, decorative UI art |
+</ParamField>
+
+<ParamField body="width" type="number">
+  Output width in pixels. Defaults to `1280`.
+</ParamField>
+
+<ParamField body="height" type="number">
+  Output height in pixels. Defaults to `720`.
+</ParamField>
+
+<ParamField body="output_path" type="string" required>
+  Absolute file path where the generated PNG is saved.
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "generate_ui_image",
+  "arguments": {
+    "prompt": "Analytics dashboard with dark sidebar, KPI cards for revenue, users, and conversion rate, a multi-line revenue trend chart in blues and purples, a donut chart for traffic sources, and a data table with row striping. Dark mode, glass-morphism card effects.",
+    "style": "mockup",
+    "width": 1440,
+    "height": 900,
+    "output_path": "/home/user/project/dashboard.png"
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "path": "/home/user/project/dashboard.png",
+  "width": 1440,
+  "height": 900,
+  "prompt_used": "Create a high-fidelity UI mockup of: Analytics dashboard with dark sidebar, KPI cards for revenue, users, and conversion rate, a multi-line revenue trend chart in blues and purples, a donut chart for traffic sources, and a data table with row striping. Dark mode, glass-morphism card effects. Size: 1440x900 pixels. Clean UI design."
+}
+```
+
+<Tip>
+  Include explicit layout zones (sidebar, header, main content), chart types, color palette descriptions, and typography hints in your prompt to get the most accurate results.
+</Tip>
+
+---
+
+## ui2md
+
+Analyzes a UI screenshot using Gemini Vision and produces a structured Markdown design specification. The spec covers layout, color palette, typography, and component styles — ready to hand off to a developer or use as context for code generation.
+
+<Note>
+  This tool requires a Gemini API key. Use `configure_gemini` to set your key before calling this tool.
+</Note>
+
+### Parameters
+
+<ParamField body="image_path" type="string" required>
+  Absolute path to the UI image to analyze. Supports `.png`, `.jpg`, `.jpeg`, `.webp`, and `.gif`.
+</ParamField>
+
+<ParamField body="output_dir" type="string">
+  Directory where the generated Markdown file is saved. Defaults to the same directory as `image_path`.
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "ui2md",
+  "arguments": {
+    "image_path": "/home/user/designs/onboarding-screen.png",
+    "output_dir": "/home/user/project/specs"
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "file_path": "/home/user/project/specs/onboarding-screen-1719432000.md",
+  "name": "Onboarding Screen — Step 1 of 3"
+}
+```
+
+---
+
+## configure\_gemini
+
+Saves a Gemini API key to the DevForge config file and hot-reloads it into the running server — no restart required. The key is stored at `~/.config/devforge/config.json`.
+
+### Parameters
+
+<ParamField body="api_key" type="string" required>
+  Your Gemini API key (starts with `AIza`).
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "configure_gemini",
+  "arguments": {
+    "api_key": "AIzaSyD_EXAMPLE_KEY_1234567890"
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "config_path": "/home/user/.config/devforge/config.json",
+  "status": "saved"
+}
+```
+
+<Tip>
+  You only need to call `configure_gemini` once. The key persists across sessions and is hot-reloaded when updated without restarting the MCP server.
+</Tip>

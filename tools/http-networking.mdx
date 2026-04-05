@@ -1,0 +1,377 @@
+---
+title: 'HTTP and networking tools'
+description: 'Tools for making HTTP requests, converting curl commands to code, replaying webhooks, generating signed URLs, and parsing URLs.'
+keywords: ['http', 'request', 'curl', 'webhook', 'signed url', 'url parse', 'networking']
+---
+
+<Note>All tools in this group are stateless and work fully offline without an API key.</Note>
+
+<Note>`http_request` and `http_webhook_replay` make real outbound network connections. All other tools in this group process data locally.</Note>
+
+## http_request
+
+Execute an HTTP request and return the status code, response headers, response body, and wall-clock duration.
+
+<ParamField path="url" type="string" required>
+  Target URL (must include scheme, e.g. `https://`).
+</ParamField>
+
+<ParamField path="method" type="string" default="GET">
+  HTTP method. Examples: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`.
+</ParamField>
+
+<ParamField path="headers" type="object">
+  Request headers as an object of string key-value pairs.
+</ParamField>
+
+<ParamField path="body" type="string">
+  Request body string. Set `Content-Type` in `headers` when sending JSON or form data.
+</ParamField>
+
+<ParamField path="timeout_seconds" type="number" default="30">
+  Request timeout in seconds. The request is aborted if the server does not respond within this window.
+</ParamField>
+
+<ParamField path="follow_redirects" type="boolean" default="true">
+  Whether to automatically follow HTTP redirects.
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "url": "https://api.example.com/v1/users",
+  "method": "POST",
+  "headers": {
+    "Content-Type": "application/json",
+    "Authorization": "Bearer tok_abc123"
+  },
+  "body": "{\"name\":\"alice\",\"email\":\"alice@example.com\"}",
+  "timeout_seconds": 10
+}
+```
+
+**Example response**
+
+```json
+{
+  "status": 201,
+  "headers": {
+    "Content-Type": "application/json",
+    "X-Request-Id": "req_9kd2mf"
+  },
+  "body": "{\"id\":\"usr_42\",\"name\":\"alice\"}",
+  "duration_ms": 187
+}
+```
+
+<ResponseField name="status" type="number">
+  HTTP response status code.
+</ResponseField>
+
+<ResponseField name="headers" type="object">
+  Response headers. Multiple values for the same header are joined with `, `.
+</ResponseField>
+
+<ResponseField name="body" type="string">
+  Response body as a string, capped at 1 MB.
+</ResponseField>
+
+<ResponseField name="duration_ms" type="number">
+  Total wall-clock time for the request in milliseconds.
+</ResponseField>
+
+<Warning>Response bodies larger than 1 MB are truncated. Use a dedicated HTTP client for large file downloads.</Warning>
+
+---
+
+## http_curl_convert
+
+Parse a `curl` command string and generate an idiomatic code snippet in Go, TypeScript, or Python.
+
+<ParamField path="curl" type="string" required>
+  The full `curl` command string to convert. Quoted strings and line continuations (`\`) are handled correctly.
+</ParamField>
+
+<ParamField path="target" type="string" required>
+  Target language for the generated snippet. One of: `go`, `typescript`, `python`.
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "curl": "curl -X POST https://api.example.com/data -H 'Content-Type: application/json' -d '{\"key\":\"value\"}'",
+  "target": "typescript"
+}
+```
+
+**Example response**
+
+```json
+{
+  "snippet": "const response = await fetch(\"https://api.example.com/data\", {\n  method: \"POST\",\n  headers: {\n    \"Content-Type\": \"application/json\",\n  },\n  body: \"{\\\"key\\\":\\\"value\\\"}\",\n});\n\nconst data = await response.text();\nconsole.log(response.status, data);\n",
+  "target": "typescript"
+}
+```
+
+<AccordionGroup>
+  <Accordion title="Supported curl flags">
+
+| Flag | Meaning |
+|------|---------|
+| `-X` / `--request` | HTTP method |
+| `-H` / `--header` | Request header (can appear multiple times) |
+| `-d` / `--data` / `--data-raw` / `--data-binary` | Request body (also implies POST if no `-X` is set) |
+| `--url` | Explicit URL |
+| Positional argument | URL, when no `--url` flag is present |
+
+Full `curl` compatibility is not the goal — only the flags above are parsed.
+
+  </Accordion>
+</AccordionGroup>
+
+<Tip>The generated snippets are minimal and readable. Paste them into your editor and extend as needed.</Tip>
+
+---
+
+## http_webhook_replay
+
+Replay a saved webhook payload to a target URL. Useful for re-triggering failed deliveries or testing a new endpoint with a real payload from your logs.
+
+<ParamField path="url" type="string" required>
+  Target URL to send the webhook to.
+</ParamField>
+
+<ParamField path="method" type="string" default="POST">
+  HTTP method. Most webhooks use `POST`.
+</ParamField>
+
+<ParamField path="headers" type="object">
+  Request headers to include, such as the original `X-Hub-Signature-256` or `Content-Type`.
+</ParamField>
+
+<ParamField path="body" type="string">
+  Webhook payload body, exactly as received from the original source.
+</ParamField>
+
+<ParamField path="timeout_seconds" type="number" default="30">
+  Request timeout in seconds.
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "url": "https://myapp.dev/webhooks/github",
+  "method": "POST",
+  "headers": {
+    "Content-Type": "application/json",
+    "X-GitHub-Event": "push",
+    "X-Hub-Signature-256": "sha256=abc123..."
+  },
+  "body": "{\"ref\":\"refs/heads/main\",\"repository\":{\"full_name\":\"org/repo\"}}",
+  "timeout_seconds": 15
+}
+```
+
+**Example response**
+
+```json
+{
+  "status": 200,
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"received\":true}"
+}
+```
+
+<ResponseField name="status" type="number">
+  HTTP response status code from the target endpoint.
+</ResponseField>
+
+<ResponseField name="headers" type="object">
+  Response headers from the target endpoint.
+</ResponseField>
+
+<ResponseField name="body" type="string">
+  Response body from the target endpoint, capped at 1 MB.
+</ResponseField>
+
+---
+
+## http_signed_url
+
+Generate a time-limited signed URL or HMAC-SHA256 signature for secure, authenticated access to a resource without requiring credentials in every request.
+
+<ParamField path="url" type="string" required>
+  The URL to sign. The path component is included in the signed message.
+</ParamField>
+
+<ParamField path="secret" type="string" required>
+  HMAC-SHA256 secret key used to compute the signature.
+</ParamField>
+
+<ParamField path="expiry_seconds" type="number" default="3600">
+  Number of seconds from now until the signature expires.
+</ParamField>
+
+<ParamField path="method" type="string" default="query">
+  Delivery method. One of:
+  - `query` — appends `expires` and `signature` as query parameters to the URL.
+  - `header` — returns the signature value only; you attach it as a request header.
+</ParamField>
+
+**Example call — query method**
+
+```json
+{
+  "url": "https://cdn.example.com/assets/report.pdf",
+  "secret": "my-cdn-secret",
+  "expiry_seconds": 3600,
+  "method": "query"
+}
+```
+
+**Example response**
+
+```json
+{
+  "signed_url": "https://cdn.example.com/assets/report.pdf?expires=1748003600&signature=f3a2b1c9...",
+  "expires_at": "2025-05-23T12:00:00Z"
+}
+```
+
+**Example call — header method**
+
+```json
+{
+  "url": "https://api.example.com/internal/data",
+  "secret": "my-api-secret",
+  "expiry_seconds": 300,
+  "method": "header"
+}
+```
+
+**Example response**
+
+```json
+{
+  "signature": "f3a2b1c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f2a1",
+  "expires_at": "2025-05-23T11:05:00Z"
+}
+```
+
+<AccordionGroup>
+  <Accordion title="Signing algorithm">
+
+The signed message is constructed as:
+
+```
+message  = URL_PATH + "?expires=" + UNIX_TIMESTAMP
+signature = HMAC-SHA256(message, secret)  →  hex-encoded
+```
+
+For the `query` method, `expires` and `signature` are appended to the URL's query string.
+For the `header` method, you are responsible for attaching the `signature` value as a request header (e.g., `X-Signature`).
+
+  </Accordion>
+</AccordionGroup>
+
+<Note>Signature verification is your responsibility on the server side. Use the same signing algorithm to recompute and compare the signature before serving the resource.</Note>
+
+---
+
+## http_url_parse
+
+Parse a URL into its components, or build a URL from individual parts.
+
+<ParamField path="action" type="string" default="parse">
+  Action to perform. One of: `parse`, `build`.
+</ParamField>
+
+<ParamField path="url" type="string">
+  URL to parse. Required when `action` is `parse`.
+</ParamField>
+
+<ParamField path="components" type="object">
+  URL components for `build` action. Accepts `scheme` (string), `host` (string), `path` (string), `query` (object of string key-value pairs), and `fragment` (string).
+</ParamField>
+
+**Example call — parse**
+
+```json
+{
+  "action": "parse",
+  "url": "https://api.example.com:8443/v1/users?page=2&limit=20#results"
+}
+```
+
+**Example response**
+
+```json
+{
+  "scheme": "https",
+  "host": "api.example.com",
+  "port": "8443",
+  "path": "/v1/users",
+  "query": {
+    "limit": "20",
+    "page": "2"
+  },
+  "fragment": "results",
+  "raw_query": "page=2&limit=20"
+}
+```
+
+**Example call — build**
+
+```json
+{
+  "action": "build",
+  "components": {
+    "scheme": "https",
+    "host": "api.example.com",
+    "path": "/v1/items",
+    "query": { "page": "1", "sort": "desc" },
+    "fragment": "top"
+  }
+}
+```
+
+**Example response**
+
+```json
+{
+  "url": "https://api.example.com/v1/items?page=1&sort=desc#top"
+}
+```
+
+<ResponseField name="scheme" type="string">
+  URL scheme (e.g. `https`, `http`).
+</ResponseField>
+
+<ResponseField name="host" type="string">
+  Hostname without the port.
+</ResponseField>
+
+<ResponseField name="port" type="string">
+  Port number as a string, or an empty string if not explicitly specified in the URL.
+</ResponseField>
+
+<ResponseField name="path" type="string">
+  URL path component.
+</ResponseField>
+
+<ResponseField name="query" type="object">
+  Parsed query parameters as key-value string pairs. When a key appears multiple times, only the first value is returned.
+</ResponseField>
+
+<ResponseField name="fragment" type="string">
+  URL fragment (the part after `#`), without the `#` character.
+</ResponseField>
+
+<ResponseField name="raw_query" type="string">
+  The raw, unparsed query string from the URL.
+</ResponseField>

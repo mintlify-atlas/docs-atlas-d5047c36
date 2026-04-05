@@ -1,0 +1,134 @@
+---
+title: "Architecture"
+---
+
+DevForge is composed of three standalone binaries that work together to deliver 70+ stateless developer tools over the MCP stdio transport.
+
+## Three-binary architecture
+
+| Binary | Role |
+|--------|------|
+| `devforge-mcp` | MCP stdio server consumed by AI clients (Claude Desktop, Cursor, and any MCP-compatible client). Exposes all tools over the Model Context Protocol. |
+| `devforge` | Interactive CLI/TUI powered by [Bubble Tea](https://github.com/charmbracelet/bubbletea). Provides the same tool surface from the terminal. |
+| `dpf` (DevPixelForge) | Rust media processing engine for image, video, audio, and document tools. Kept as a separate process to preserve Go-side statelessness. |
+
+All three binaries are distributed together — the Homebrew formula and every release archive include all three.
+
+## Runtime model
+
+<Info>
+  All tools are stateless. There is no database, no embeddings, and no persistent state between calls. Every tool invocation is fully self-contained.
+</Info>
+
+DevForge intentionally removed its old persistence subsystem. There is no SQLite, no FTS5 or vector search, no Ollama/Nomic embeddings, and no stored patterns, architectures, or audit logs. This makes the runtime bundle small and the behavior reproducible.
+
+## Transport
+
+<Note>
+  The MCP transport is **stdio only**. DevForge does not expose an HTTP server, a WebSocket endpoint, or any network listener. Do not add HTTP or WebSocket transport.
+</Note>
+
+`devforge-mcp` starts as a child process of the AI client and communicates entirely over stdin/stdout using the [Model Context Protocol](https://modelcontextprotocol.io).
+
+## Tool registration
+
+All tools are registered at startup in `cmd/devforge-mcp/main.go`. The entry point calls a single `registerTools()` function, which delegates to one function per tool group:
+
+```go
+func registerTools(s *mcpserver.MCPServer, app *mcpApp) {
+    // Utility groups
+    registerTextEncTools(s, app)
+    registerDataFmtTools(s, app)
+    registerCryptoUtilTools(s, app)
+    registerHTTPTools(s, app)
+    registerDateTimeTools(s, app)
+    registerFileTools(s, app)
+    registerFrontendTools(s, app)
+    registerBackendTools(s, app)
+    registerCodeTools(s, app)
+
+    // Design / media tools registered inline
+    // analyze_layout, suggest_layout, manage_tokens,
+    // generate_ui_image, ui2md, markdown_to_pdf,
+    // configure_gemini, optimize_images, generate_favicon,
+    // image_*, video_*, audio_*, suggest_color_palettes
+}
+```
+
+To add a new tool, add the handler in `internal/tools/` and register it here.
+
+## Tool groups
+
+<CardGroup cols={2}>
+  <Card title="Utility groups (48 tools)" icon="wrench">
+    Nine deterministic, dependency-free groups: `textenc`, `datafmt`, `cryptoutil`, `httptools`, `datetime`, `filetools`, `frontend`, `backend`, and `codetools`. These work offline and require no API key.
+  </Card>
+  <Card title="Design & media tools" icon="image">
+    Layout analysis, design tokens, color palettes, Gemini AI image generation, and the full dpf media pipeline: image, video, audio, and document processing.
+  </Card>
+</CardGroup>
+
+## Configuration
+
+DevForge reads `~/.config/devforge/config.json` at startup. You can override the path with the `DEV_FORGE_CONFIG` environment variable.
+
+```json
+{
+  "gemini_api_key": "",
+  "image_model": "gemini-2.5-flash-image"
+}
+```
+
+The Gemini API key supports **hot-reload** — call the `configure_gemini` tool at runtime and the server picks up the new key without restarting. All non-AI tools work without a key and fully offline.
+
+## Build and cross-compilation
+
+<Note>
+  CGO is disabled across the entire codebase. There are no cgo imports anywhere.
+</Note>
+
+```bash
+go build ./...   # compile all Go binaries, no CGO required
+go test ./...    # run the full test suite
+```
+
+CI builds two release targets:
+
+- **Linux amd64** (`devforge_<version>_linux_amd64.tar.gz`)
+- **macOS arm64** (`devforge_<version>_darwin_arm64.tar.gz`)
+
+Each archive bundles all three binaries. The Homebrew formula is generated automatically from the published checksums.
+
+## dpf subprocess protocol
+
+Media tools do not link Rust code into the Go binary. Instead, `devforge-mcp` spawns `dpf` as a subprocess and communicates using a **streaming JSON protocol over stdin/stdout**.
+
+At startup, `devforge-mcp` creates a `StreamClient` that keeps the dpf process alive for the lifetime of the server:
+
+```go
+sc, err := dpf.NewStreamClient(dpfPath)
+```
+
+Each media tool call sends a single newline-terminated JSON job and reads a single newline-terminated JSON response:
+
+```
+Go server  ──▶  {"operation":"resize","input":"photo.jpg",...}\n  ──▶  dpf
+Go server  ◀──  {"success":true,"outputs":[...],"elapsed_ms":12}\n  ◀──  dpf
+```
+
+This avoids per-call process spawn overhead while keeping the Go layer fully stateless at the OS level.
+
+## Media tool dependency chain
+
+```
+AI client
+  └─▶ devforge-mcp (Go, stdio)
+        └─▶ dpf subprocess (Rust)
+              └─▶ FFmpeg (optional, for video/audio tools)
+```
+
+<Warning>
+  FFmpeg is an **optional** runtime dependency used only by video and audio tools. Image and document tools do not require it. Install it separately with `brew install ffmpeg` only if you need those tools.
+</Warning>
+
+If `dpf` is not found at startup, `devforge-mcp` logs a warning and sets the dpf client to `nil`. All 48 utility tools continue to work normally; only the media tools return errors.

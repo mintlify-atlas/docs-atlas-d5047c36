@@ -1,0 +1,68 @@
+---
+title: 'Introduction'
+description: 'DevForge MCP is a Go-powered MCP stdio server and CLI/TUI with 70+ stateless developer tools for AI agents and terminals.'
+keywords: ['devforge', 'mcp', 'developer tools', 'go', 'cli', 'ai agent']
+---
+
+DevForge is a Go-powered MCP server and CLI/TUI that brings 70+ stateless developer tools directly into AI agents and terminals. It covers text encoding, data conversion, cryptography, HTTP, date/time, file operations, frontend and backend utilities, code formatting, and a full media processing pipeline — all with zero database dependencies.
+
+## Three binaries, one toolkit
+
+DevForge ships as three standalone binaries that work independently or together:
+
+| Binary | Role |
+|--------|------|
+| `devforge` | Interactive CLI/TUI built with Bubble Tea. Exposes the full tool surface from the terminal with an ergonomic interface. |
+| `devforge-mcp` | MCP stdio server consumed by AI clients. Exposes all tools over the Model Context Protocol. |
+| `dpf` | DevPixelForge — a high-performance media processing engine written in Rust. Handles image optimization, video/audio processing, PDF generation, and more. |
+
+All three binaries are stateless — no database, no embeddings, no persistent state between calls.
+
+## Key features
+
+- **Stateless by design** — no SQLite, no FTS5, no vector store, no audit logs
+- **Zero CGO** — pure Go compilation, no native dependencies
+- **Works offline** — all non-AI tools run without a network connection or API key
+- **MCP stdio transport** — compatible with Claude Desktop, Cursor, and any MCP-compliant client
+- **70+ tools** across 9 developer utility categories plus a media processing suite
+
+## Tool categories
+
+### Developer utilities (48 tools)
+
+| Category | Description |
+|----------|-------------|
+| Text & encoding | String transformations, Base64, URL encoding, slugs, UUIDs, case conversion |
+| Data formats | JSON formatting, YAML/CSV conversion, JSONPath, schema validation, diffing |
+| Crypto | Hashing, HMAC, JWT, password hashing, key generation, secret masking |
+| HTTP & networking | HTTP requests, curl conversion, signed URLs, URL parsing |
+| Date & time | Timestamp conversion, duration math, cron parsing, date ranges |
+| File & archive | Checksums, zip/tar.gz creation, unified diff, line ending normalization, hex dump |
+| Frontend utilities | Color conversion, CSS units, breakpoints, regex testing, locale formatting |
+| Backend utilities | SQL formatting, DSN builder, log parsing, `.env` validation, MQ payloads |
+| Code utilities | Code formatting (Go/TS/JSON/HTML/CSS), metrics (LOC/complexity), template rendering |
+
+### Design & media tools
+
+Powered by `dpf` (DevPixelForge), the media pipeline covers layout analysis and design tokens, AI-assisted UI generation (via Gemini), image processing (resize, convert, crop, rotate, watermark, optimize, srcset, sprites, EXIF), video (transcode, resize, trim, thumbnail), audio (normalize, transcode, trim, silence removal), and document export (Markdown to PDF).
+
+<Note>
+  All 48 developer utility tools work offline without an API key. Only the Gemini-powered AI tools (`generate_ui_image`, `ui2md`, `suggest_color_palettes`) require a `gemini_api_key` in your config.
+</Note>
+
+## Get started
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install DevForge via Homebrew or build from source.
+  </Card>
+  <Card title="Quick start" icon="bolt" href="/quickstart">
+    Make your first tool call in under 2 minutes.
+  </Card>
+  <Card title="MCP client setup" icon="plug" href="/mcp-setup">
+    Connect DevForge to Claude Desktop, Cursor, or any MCP client.
+  </Card>
+  <Card title="Design & media tools" icon="image" href="/tools/design-layout">
+    Explore the layout, token, image, video, and audio tool reference.
+  </Card>
+</CardGroup>

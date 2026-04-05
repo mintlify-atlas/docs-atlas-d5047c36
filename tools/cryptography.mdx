@@ -1,0 +1,467 @@
+---
+title: 'Cryptography tools'
+description: 'Stateless cryptographic utilities: hashing, HMAC, JWT, password hashing, key generation, random value generation, and secret masking.'
+keywords: ['crypto', 'hash', 'hmac', 'jwt', 'bcrypt', 'argon2', 'keygen', 'random', 'mask', 'redact']
+---
+
+<Note>All tools in this group are stateless and work fully offline without an API key.</Note>
+
+<Note>No external dependencies — pure Go standard library plus `golang.org/x/crypto`.</Note>
+
+## crypto_hash
+
+Hash a string using a standard algorithm and return the digest in hex or base64 encoding.
+
+<ParamField path="input" type="string" required>
+  String to hash.
+</ParamField>
+
+<ParamField path="algorithm" type="string" default="sha256">
+  Hash algorithm. One of: `sha256`, `sha512`, `md5`, `sha1`.
+</ParamField>
+
+<ParamField path="encoding" type="string" default="hex">
+  Output encoding. One of: `hex`, `base64`.
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "input": "hello",
+  "algorithm": "sha256",
+  "encoding": "hex"
+}
+```
+
+**Example response**
+
+```json
+{
+  "hash": "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+  "algorithm": "sha256",
+  "encoding": "hex"
+}
+```
+
+<Warning>MD5 and SHA-1 are cryptographically broken. Use them only for checksums or legacy compatibility, not for security-sensitive hashing.</Warning>
+
+---
+
+## crypto_hmac
+
+Compute an HMAC (hash-based message authentication code) to verify message integrity and authenticity.
+
+<ParamField path="message" type="string" required>
+  Message to authenticate.
+</ParamField>
+
+<ParamField path="key" type="string" required>
+  HMAC secret key.
+</ParamField>
+
+<ParamField path="algorithm" type="string" default="sha256">
+  HMAC algorithm. One of: `sha256`, `sha512`.
+</ParamField>
+
+<ParamField path="encoding" type="string" default="hex">
+  Output encoding. One of: `hex`, `base64`.
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "message": "webhook-payload",
+  "key": "my-secret-key",
+  "algorithm": "sha256",
+  "encoding": "hex"
+}
+```
+
+**Example response**
+
+```json
+{
+  "hmac": "b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad",
+  "algorithm": "sha256"
+}
+```
+
+<Tip>HMAC-SHA256 is the standard algorithm used by GitHub, Stripe, and most webhook providers for signature verification.</Tip>
+
+---
+
+## crypto_jwt
+
+Generate, decode, or verify JWT tokens using HS256 or HS512. Implemented without external JWT libraries — pure HMAC over base64url-encoded `header.payload`.
+
+<ParamField path="operation" type="string" required>
+  Operation to perform. One of: `decode`, `verify`, `generate`.
+</ParamField>
+
+<ParamField path="token" type="string">
+  JWT token string. Required for `decode` and `verify` operations.
+</ParamField>
+
+<ParamField path="secret" type="string">
+  HMAC secret key. Required for `verify` and `generate` operations.
+</ParamField>
+
+<ParamField path="payload" type="string">
+  JSON object string of claims to embed in the token. Used for `generate`. Defaults to `{}`.
+</ParamField>
+
+<ParamField path="expiry_seconds" type="number" default="3600">
+  Token lifetime in seconds from the current time. Used for `generate`. The `iat` and `exp` claims are added automatically.
+</ParamField>
+
+<ParamField path="algorithm" type="string" default="HS256">
+  HMAC algorithm. One of: `HS256`, `HS512`.
+</ParamField>
+
+**Example call — generate**
+
+```json
+{
+  "operation": "generate",
+  "secret": "my-signing-secret",
+  "payload": "{\"sub\":\"user_42\",\"role\":\"admin\"}",
+  "expiry_seconds": 3600,
+  "algorithm": "HS256"
+}
+```
+
+**Example response**
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDgwMDM2MDAsImlhdCI6MTc0ODAwMDAwMCwicm9sZSI6ImFkbWluIiwic3ViIjoidXNlcl80MiJ9.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+}
+```
+
+**Example call — decode**
+
+```json
+{
+  "operation": "decode",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyXzQyIn0.abc123"
+}
+```
+
+**Example response**
+
+```json
+{
+  "header": { "alg": "HS256", "typ": "JWT" },
+  "payload": { "sub": "user_42", "iat": 1748000000, "exp": 1748003600 },
+  "signature": "SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+  "expired": false
+}
+```
+
+**Example call — verify**
+
+```json
+{
+  "operation": "verify",
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1c2VyXzQyIn0.abc123",
+  "secret": "my-signing-secret"
+}
+```
+
+**Example response**
+
+```json
+{
+  "valid": true,
+  "expired": false,
+  "claims": { "sub": "user_42", "iat": 1748000000, "exp": 1748003600 }
+}
+```
+
+<Note>`verify` returns `valid: false` if the signature does not match **or** if the token's `exp` claim is in the past. Decode does not verify the signature — it only inspects the token structure.</Note>
+
+---
+
+## crypto_password
+
+Hash or verify passwords using industry-standard adaptive algorithms. Defaults to bcrypt with a cost of 12.
+
+<ParamField path="password" type="string" required>
+  Password to hash or verify.
+</ParamField>
+
+<ParamField path="operation" type="string" required>
+  Operation to perform. One of: `hash`, `verify`.
+</ParamField>
+
+<ParamField path="algorithm" type="string" default="bcrypt">
+  Hashing algorithm. One of: `bcrypt`, `argon2id`.
+</ParamField>
+
+<ParamField path="hash" type="string">
+  Previously computed hash. Required for `verify`.
+</ParamField>
+
+<ParamField path="cost" type="number" default="12">
+  bcrypt work factor (4–31). Higher values are slower and more resistant to brute force. Ignored for `argon2id`.
+</ParamField>
+
+**Example call — hash**
+
+```json
+{
+  "password": "hunter2",
+  "operation": "hash",
+  "algorithm": "bcrypt",
+  "cost": 12
+}
+```
+
+**Example response**
+
+```json
+{
+  "hash": "$2a$12$eImiTXuWVxfM37uY4JANjQ.9.hZpwVa9J7Gwd.uXpCTGUQFXb5Bq."
+}
+```
+
+**Example call — verify**
+
+```json
+{
+  "password": "hunter2",
+  "operation": "verify",
+  "algorithm": "bcrypt",
+  "hash": "$2a$12$eImiTXuWVxfM37uY4JANjQ.9.hZpwVa9J7Gwd.uXpCTGUQFXb5Bq."
+}
+```
+
+**Example response**
+
+```json
+{
+  "valid": true
+}
+```
+
+<AccordionGroup>
+  <Accordion title="Argon2id parameters">
+
+Argon2id uses fixed OWASP-recommended parameters — they are not configurable:
+
+| Parameter | Value |
+|-----------|-------|
+| Memory (`m`) | 65536 (64 MB) |
+| Iterations (`t`) | 1 |
+| Parallelism (`p`) | 4 |
+| Key length | 32 bytes |
+
+Hashes are stored in PHC format: `$argon2id$v=19$m=65536,t=1,p=4$<salt>$<hash>`.
+
+  </Accordion>
+</AccordionGroup>
+
+<Warning>These are developer utility tools. Review bcrypt cost and argon2id memory parameters against your threat model before using `crypto_password` in a production authentication system.</Warning>
+
+---
+
+## crypto_keygen
+
+Generate an asymmetric key pair (RSA, EC, or Ed25519) in PEM or JWK format.
+
+<ParamField path="key_type" type="string" required>
+  Type of key to generate. One of: `rsa`, `ec`, `ed25519`.
+</ParamField>
+
+<ParamField path="bits" type="number" default="2048">
+  RSA key size in bits. One of: `2048`, `4096`. Applies to `rsa` only.
+</ParamField>
+
+<ParamField path="curve" type="string" default="P-256">
+  Elliptic curve to use. One of: `P-256`, `P-384`. Applies to `ec` only.
+</ParamField>
+
+<ParamField path="format" type="string" default="pem">
+  Output format. One of: `pem`, `jwk`.
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "key_type": "ec",
+  "curve": "P-256",
+  "format": "pem"
+}
+```
+
+**Example response**
+
+```json
+{
+  "private_key": "-----BEGIN EC PRIVATE KEY-----\nMHQCAQEEI...\n-----END EC PRIVATE KEY-----\n",
+  "public_key": "-----BEGIN PUBLIC KEY-----\nMFkwEwYH...\n-----END PUBLIC KEY-----\n",
+  "key_type": "ec"
+}
+```
+
+**Example call — JWK format**
+
+```json
+{
+  "key_type": "ed25519",
+  "format": "jwk"
+}
+```
+
+**Example response**
+
+```json
+{
+  "private_key": "{\"crv\":\"Ed25519\",\"d\":\"nWGxne...\",\"kty\":\"OKP\",\"x\":\"11qYAY...\"}",
+  "public_key": "{\"crv\":\"Ed25519\",\"kty\":\"OKP\",\"x\":\"11qYAY...\"}",
+  "key_type": "ed25519"
+}
+```
+
+<AccordionGroup>
+  <Accordion title="Key type details">
+
+| Key type | PEM header | JWK `kty` | Notes |
+|----------|-----------|-----------|-------|
+| `rsa` | `PRIVATE KEY` (PKCS#8) + `PUBLIC KEY` (PKIX) | `RSA` | Default 2048 bits |
+| `ec` | `EC PRIVATE KEY` + `PUBLIC KEY` (PKIX) | `EC` with `crv` | Default P-256 |
+| `ed25519` | `PRIVATE KEY` (PKCS#8) + `PUBLIC KEY` (PKIX) | `OKP` with `crv: Ed25519` | No curve or bits param |
+
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## crypto_random
+
+Generate cryptographically secure random values using `crypto/rand`.
+
+<ParamField path="kind" type="string" required>
+  Kind of value to generate. One of: `token`, `bytes`, `otp`.
+</ParamField>
+
+<ParamField path="length" type="number">
+  Length in bytes (for `token` / `bytes`, default 32) or digits (for `otp`, default 6).
+</ParamField>
+
+<ParamField path="encoding" type="string" default="hex">
+  Output encoding. One of: `hex`, `base64`, `base64url`. Ignored for `otp` (always decimal digits).
+</ParamField>
+
+**Example call — token**
+
+```json
+{
+  "kind": "token",
+  "length": 32,
+  "encoding": "hex"
+}
+```
+
+**Example response**
+
+```json
+{
+  "value": "a3f7bc9e1d4f82c6e0b5d9a2f1c8e3b7a0d4f6e2c9b8a1d5f3e7c2b6a9d0f4e1"
+}
+```
+
+**Example call — OTP**
+
+```json
+{
+  "kind": "otp",
+  "length": 6
+}
+```
+
+**Example response**
+
+```json
+{
+  "value": "492817"
+}
+```
+
+<AccordionGroup>
+  <Accordion title="Kind details">
+
+| Kind | Description | Default length |
+|------|-------------|----------------|
+| `token` | Random bytes encoded as a string | 32 bytes |
+| `bytes` | Alias for `token` — identical behavior | 32 bytes |
+| `otp` | Uniformly random decimal digits, suitable for one-time passcodes | 6 digits |
+
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## crypto_mask
+
+Scan text for sensitive patterns and replace matches with a redaction string.
+
+<ParamField path="text" type="string" required>
+  Text to scan and redact.
+</ParamField>
+
+<ParamField path="patterns" type="string[]" default='["all"]'>
+  List of pattern names to activate. One or more of: `api_key`, `password`, `email`, `credit_card`, `jwt`, `all`.
+  Use `"all"` to activate every pattern.
+</ParamField>
+
+<ParamField path="replacement" type="string" default="[REDACTED]">
+  String that replaces each match. The replacement itself is never re-scanned.
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "text": "Connect using sk-abc123XYZ_abcdefghijklmnopqrstuvwxyz and user@example.com",
+  "patterns": ["api_key", "email"],
+  "replacement": "[REDACTED]"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "Connect using [REDACTED] and [REDACTED]",
+  "redacted_count": 2
+}
+```
+
+<ResponseField name="result" type="string">
+  The input text with all matched secrets replaced.
+</ResponseField>
+
+<ResponseField name="redacted_count" type="number">
+  Total number of matches replaced across all activated patterns.
+</ResponseField>
+
+<AccordionGroup>
+  <Accordion title="Pattern reference">
+
+| Pattern | What it detects |
+|---------|-----------------|
+| `api_key` | Tokens beginning with `sk-`, `pk-`, `api_`, or `key_` followed by 20 or more word characters |
+| `password` | Key-value pairs like `password=hunter2`, `passwd: "foo"`, `pwd=abc` |
+| `email` | Standard email addresses matching `user@domain.tld` |
+| `credit_card` | 13–19 consecutive digits with optional space or hyphen separators |
+| `jwt` | Three-part base64url strings starting with `eyJ` (standard JWT header prefix) |
+| `all` | Activates all patterns listed above |
+
+  </Accordion>
+</AccordionGroup>
+
+<Tip>Use `patterns: ["email", "credit_card"]` to activate only specific detectors instead of scanning for everything.</Tip>

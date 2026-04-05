@@ -1,0 +1,464 @@
+---
+title: "Video & audio tools"
+description: "Transcode, resize, trim, and process video and audio files using the dpf (DevPixelForge) engine and FFmpeg."
+---
+
+<Warning>
+  All video and audio tools require both the `dpf` binary **and** FFmpeg to be available in your `$PATH`. Run `bash scripts/install-dpf.sh` to install dpf. Install FFmpeg with your system package manager.
+</Warning>
+
+<Note>
+  Install FFmpeg on macOS with `brew install ffmpeg`. On Ubuntu/Debian use `sudo apt install ffmpeg`.
+</Note>
+
+---
+
+## Video tools
+
+### video\_transcode
+
+Transcodes a video file to a different codec. Use this to convert between formats, change bitrate, or optimize encoding speed versus quality with a preset.
+
+#### Parameters
+
+<ParamField body="input" type="string" required>
+  Input video path.
+</ParamField>
+
+<ParamField body="output" type="string" required>
+  Output video path.
+</ParamField>
+
+<ParamField body="codec" type="string" required>
+  Target video codec. One of `h264`, `h265`, `vp8`, `vp9`, or `av1`.
+</ParamField>
+
+<ParamField body="bitrate" type="string">
+  Target bitrate string. For example `"2M"` or `"5000k"`.
+</ParamField>
+
+<ParamField body="preset" type="string">
+  Encoding speed/quality trade-off. One of `ultrafast`, `fast`, `medium`, `slow`, or `veryslow`. Slower presets produce smaller files at the same quality.
+</ParamField>
+
+#### Example call
+
+```json
+{
+  "name": "video_transcode",
+  "arguments": {
+    "input": "/project/media/raw-recording.mov",
+    "output": "/project/media/recording.mp4",
+    "codec": "h264",
+    "bitrate": "3M",
+    "preset": "medium"
+  }
+}
+```
+
+#### Example response
+
+```json
+{
+  "success": true,
+  "output_path": "/project/media/recording.mp4",
+  "elapsed_ms": 14280
+}
+```
+
+---
+
+### video\_resize
+
+Resizes video to a target resolution. By default, aspect ratio is maintained so you only need to specify one dimension.
+
+#### Parameters
+
+<ParamField body="input" type="string" required>
+  Input video path.
+</ParamField>
+
+<ParamField body="output" type="string" required>
+  Output video path.
+</ParamField>
+
+<ParamField body="width" type="number">
+  Target width in pixels. Specify at least one of `width` or `height`.
+</ParamField>
+
+<ParamField body="height" type="number">
+  Target height in pixels. Specify at least one of `width` or `height`.
+</ParamField>
+
+<ParamField body="maintain_aspect" type="boolean">
+  Preserve the original aspect ratio. Defaults to `true`.
+</ParamField>
+
+#### Example call
+
+```json
+{
+  "name": "video_resize",
+  "arguments": {
+    "input": "/project/media/promo.mp4",
+    "output": "/project/media/promo-720p.mp4",
+    "width": 1280,
+    "maintain_aspect": true
+  }
+}
+```
+
+#### Example response
+
+```json
+{
+  "success": true,
+  "output_path": "/project/media/promo-720p.mp4",
+  "elapsed_ms": 8430
+}
+```
+
+---
+
+### video\_trim
+
+Extracts a time range from a video. Start and end times are specified in seconds.
+
+#### Parameters
+
+<ParamField body="input" type="string" required>
+  Input video path.
+</ParamField>
+
+<ParamField body="output" type="string" required>
+  Output video path.
+</ParamField>
+
+<ParamField body="start" type="number" required>
+  Start time in seconds (non-negative).
+</ParamField>
+
+<ParamField body="end" type="number" required>
+  End time in seconds. Must be greater than `start`.
+</ParamField>
+
+#### Example call
+
+```json
+{
+  "name": "video_trim",
+  "arguments": {
+    "input": "/project/media/interview.mp4",
+    "output": "/project/media/interview-clip.mp4",
+    "start": 45.0,
+    "end": 120.0
+  }
+}
+```
+
+#### Example response
+
+```json
+{
+  "success": true,
+  "output_path": "/project/media/interview-clip.mp4",
+  "elapsed_ms": 3100
+}
+```
+
+---
+
+### video\_thumbnail
+
+Extracts a single frame from a video and saves it as an image. The timestamp can be a percentage of the total duration or an absolute time in seconds.
+
+#### Parameters
+
+<ParamField body="input" type="string" required>
+  Input video path.
+</ParamField>
+
+<ParamField body="output" type="string" required>
+  Output image path.
+</ParamField>
+
+<ParamField body="timestamp" type="string" required>
+  Frame position. Use a percentage string like `"25%"` or a time in seconds like `"30.5"`.
+</ParamField>
+
+<ParamField body="format" type="string">
+  Output image format. One of `jpeg`, `png`, or `webp`. Defaults to `jpeg`.
+</ParamField>
+
+<ParamField body="quality" type="number">
+  Image quality 1–100. Defaults to `85`.
+</ParamField>
+
+#### Example call
+
+```json
+{
+  "name": "video_thumbnail",
+  "arguments": {
+    "input": "/project/media/product-demo.mp4",
+    "output": "/project/media/product-demo-thumb.jpg",
+    "timestamp": "25%",
+    "format": "jpeg",
+    "quality": 88
+  }
+}
+```
+
+#### Example response
+
+```json
+{
+  "success": true,
+  "output_path": "/project/media/product-demo-thumb.jpg",
+  "elapsed_ms": 420
+}
+```
+
+---
+
+### video\_profile
+
+Applies a pre-configured web-optimized encoding profile. Profiles combine resolution, bitrate, and codec settings tuned for different bandwidth budgets.
+
+#### Parameters
+
+<ParamField body="input" type="string" required>
+  Input video path.
+</ParamField>
+
+<ParamField body="output" type="string" required>
+  Output video path.
+</ParamField>
+
+<ParamField body="profile" type="string" required>
+  Encoding profile to apply.
+
+  | Profile | Resolution | Bitrate |
+  |---|---|---|
+  | `web-low` | 480p | ~1 Mbps |
+  | `web-mid` | 720p | ~2.5 Mbps |
+  | `web-high` | 1080p | ~5 Mbps |
+</ParamField>
+
+#### Example call
+
+```json
+{
+  "name": "video_profile",
+  "arguments": {
+    "input": "/project/media/webinar-raw.mp4",
+    "output": "/project/media/webinar-web.mp4",
+    "profile": "web-mid"
+  }
+}
+```
+
+#### Example response
+
+```json
+{
+  "success": true,
+  "output_path": "/project/media/webinar-web.mp4",
+  "elapsed_ms": 22540
+}
+```
+
+---
+
+## Audio tools
+
+### audio\_normalize
+
+Normalizes the loudness of an audio file to a target LUFS level, making it suitable for a specific platform or distribution standard.
+
+#### Parameters
+
+<ParamField body="input" type="string" required>
+  Input audio path.
+</ParamField>
+
+<ParamField body="output" type="string" required>
+  Output audio path.
+</ParamField>
+
+<ParamField body="target_lufs" type="number" required>
+  Target integrated loudness in LUFS. Common reference values:
+
+  | Target | Platform |
+  |---|---|
+  | `-14` | YouTube |
+  | `-16` | Spotify |
+  | `-23` | EBU R128 (broadcast) |
+</ParamField>
+
+#### Example call
+
+```json
+{
+  "name": "audio_normalize",
+  "arguments": {
+    "input": "/project/audio/podcast-ep12-raw.wav",
+    "output": "/project/audio/podcast-ep12.wav",
+    "target_lufs": -16
+  }
+}
+```
+
+#### Example response
+
+```json
+{
+  "success": true,
+  "output_path": "/project/audio/podcast-ep12.wav",
+  "elapsed_ms": 2860
+}
+```
+
+---
+
+### audio\_transcode
+
+Converts an audio file between formats and codecs, with optional bitrate control.
+
+#### Parameters
+
+<ParamField body="input" type="string" required>
+  Input audio path.
+</ParamField>
+
+<ParamField body="output" type="string" required>
+  Output audio path.
+</ParamField>
+
+<ParamField body="codec" type="string" required>
+  Target codec. One of `mp3`, `aac`, `opus`, `vorbis`, `flac`, or `wav`.
+</ParamField>
+
+<ParamField body="bitrate" type="string">
+  Target bitrate string. For example `"192k"` or `"128k"`. Ignored for lossless codecs (`flac`, `wav`).
+</ParamField>
+
+#### Example call
+
+```json
+{
+  "name": "audio_transcode",
+  "arguments": {
+    "input": "/project/audio/track.flac",
+    "output": "/project/audio/track.mp3",
+    "codec": "mp3",
+    "bitrate": "320k"
+  }
+}
+```
+
+#### Example response
+
+```json
+{
+  "success": true,
+  "output_path": "/project/audio/track.mp3",
+  "elapsed_ms": 1540
+}
+```
+
+---
+
+### audio\_trim
+
+Trims an audio file to a specific time range. Start and end times are in seconds.
+
+#### Parameters
+
+<ParamField body="input" type="string" required>
+  Input audio path.
+</ParamField>
+
+<ParamField body="output" type="string" required>
+  Output audio path.
+</ParamField>
+
+<ParamField body="start" type="number" required>
+  Start time in seconds (non-negative).
+</ParamField>
+
+<ParamField body="end" type="number" required>
+  End time in seconds. Must be greater than `start`.
+</ParamField>
+
+#### Example call
+
+```json
+{
+  "name": "audio_trim",
+  "arguments": {
+    "input": "/project/audio/session.wav",
+    "output": "/project/audio/session-intro.wav",
+    "start": 0.0,
+    "end": 30.0
+  }
+}
+```
+
+#### Example response
+
+```json
+{
+  "success": true,
+  "output_path": "/project/audio/session-intro.wav",
+  "elapsed_ms": 210
+}
+```
+
+---
+
+### audio\_silence\_trim
+
+Removes leading and trailing silence from an audio file. Useful for cleaning up microphone recordings or processed audio that has quiet padding at the start or end.
+
+#### Parameters
+
+<ParamField body="input" type="string" required>
+  Input audio path.
+</ParamField>
+
+<ParamField body="output" type="string" required>
+  Output audio path.
+</ParamField>
+
+<ParamField body="threshold_db" type="number">
+  Amplitude threshold below which audio is considered silence, in dBFS. Defaults to `-40`.
+</ParamField>
+
+<ParamField body="min_duration" type="number">
+  Minimum duration of a silence region to trim, in seconds. Defaults to `0.5`.
+</ParamField>
+
+#### Example call
+
+```json
+{
+  "name": "audio_silence_trim",
+  "arguments": {
+    "input": "/project/audio/voiceover-raw.wav",
+    "output": "/project/audio/voiceover-clean.wav",
+    "threshold_db": -42,
+    "min_duration": 0.3
+  }
+}
+```
+
+#### Example response
+
+```json
+{
+  "success": true,
+  "output_path": "/project/audio/voiceover-clean.wav",
+  "elapsed_ms": 380
+}
+```

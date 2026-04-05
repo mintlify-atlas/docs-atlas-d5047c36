@@ -1,0 +1,151 @@
+---
+title: 'MCP client setup'
+description: 'Connect devforge-mcp to Claude Desktop, Cursor, or any MCP-compatible client using the stdio transport.'
+keywords: ['mcp', 'devforge', 'claude desktop', 'cursor', 'stdio', 'setup']
+---
+
+`devforge-mcp` runs as a stdio MCP server. There is no HTTP port and no WebSocket — the client process spawns the binary directly and communicates over stdin/stdout.
+
+<Note>
+  Use an absolute path to the `devforge-mcp` binary in every config below. Relative paths may fail depending on how the client resolves the working directory.
+</Note>
+
+## Connect your client
+
+<Tabs>
+  <Tab title="Claude Desktop">
+    The config file lives at:
+
+    - **macOS**: `~/.config/claude/claude_desktop_config.json`
+    - **Linux**: `~/.config/claude/claude_desktop_config.json`
+
+    <Steps>
+      <Step title="Open the config file">
+        Open `claude_desktop_config.json` in your editor. Create it if it does not exist.
+      </Step>
+      <Step title="Add the devforge server entry">
+        ```json claude_desktop_config.json
+        {
+          "mcpServers": {
+            "devforge": {
+              "command": "/usr/local/bin/devforge-mcp",
+              "args": [],
+              "env": {}
+            }
+          }
+        }
+        ```
+
+        Replace `/usr/local/bin/devforge-mcp` with the actual path returned by `which devforge-mcp`.
+      </Step>
+      <Step title="Restart Claude Desktop">
+        Quit and relaunch Claude Desktop. The devforge tools appear in the tool picker on the next session.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Cursor">
+    <Steps>
+      <Step title="Open Cursor settings">
+        Go to **Settings → Tools & Integrations → MCP** (or open the Command Palette and search for "MCP servers").
+      </Step>
+      <Step title="Add a new MCP server">
+        Click **Add MCP server** and fill in:
+
+        - **Name**: `devforge`
+        - **Command**: absolute path to `devforge-mcp` (e.g. `/usr/local/bin/devforge-mcp`)
+        - **Args**: leave empty
+        - **Env**: leave empty
+      </Step>
+      <Step title="Save and reload">
+        Save the settings. Cursor connects to the server and lists the available tools in the agent panel.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Generic client">
+    Any client that supports the MCP stdio transport accepts the following minimal entry:
+
+    ```json
+    {
+      "mcpServers": {
+        "devforge": {
+          "command": "/path/to/devforge-mcp",
+          "args": [],
+          "env": {}
+        }
+      }
+    }
+    ```
+
+    The `args` and `env` fields are optional — include them only if your client requires them.
+  </Tab>
+</Tabs>
+
+## Transport details
+
+`devforge-mcp` uses **pure stdio transport** only:
+
+- No HTTP server is started.
+- No WebSocket endpoint is opened.
+- The binary reads MCP messages from stdin and writes responses to stdout.
+- stderr is used for diagnostic logs and is safe to redirect or discard.
+
+## Example tool calls
+
+The following are valid MCP tool call payloads you can send to a connected `devforge-mcp` server.
+
+### `analyze_layout`
+
+Audits HTML or JSX markup for layout, accessibility, spacing, and typography issues.
+
+```json
+{
+  "name": "analyze_layout",
+  "arguments": {
+    "markup": "<main><img src=\"hero.png\" alt=\"Hero\"></main>",
+    "page_type": "landing",
+    "device_focus": "both",
+    "stack": {
+      "css_mode": "plain-css",
+      "framework": "vanilla"
+    }
+  }
+}
+```
+
+### `manage_tokens`
+
+Reads or updates design tokens such as colors, spacing, and typography.
+
+```json
+{
+  "name": "manage_tokens",
+  "arguments": {
+    "mode": "plan-update",
+    "css_mode": "tailwind-v4",
+    "scope": "colors",
+    "proposal": {
+      "--color-primary": "#2563eb"
+    }
+  }
+}
+```
+
+### `http_request`
+
+Executes an HTTP request and returns the response body and status.
+
+```json
+{
+  "name": "http_request",
+  "arguments": {
+    "method": "GET",
+    "url": "https://example.com",
+    "headers": {},
+    "body": ""
+  }
+}
+```
+
+<Tip>
+  All 70+ tools share the same stdio transport. Sending any registered tool name as the `name` field works the same way.
+</Tip>

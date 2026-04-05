@@ -1,0 +1,160 @@
+{
+  "projectType": "cli-tool",
+  "projectName": "DevForge MCP",
+  "projectDescription": "A Go-powered MCP stdio server and CLI/TUI providing 70+ stateless developer tools — spanning media processing, design, cryptography, HTTP, data formatting, and code utilities — for AI agents and terminal workflows.",
+  "theme": "aspen",
+  "primaryColor": "#94cb04",
+  "lightColor": "#545454",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Usage",
+            "pages": [
+              "mcp-setup",
+              "cli-tui",
+              "configuration"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture",
+              "dpf-integration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Tool Reference",
+        "groups": [
+          {
+            "group": "Design & Media",
+            "pages": [
+              "tools/design-layout",
+              "tools/image-processing",
+              "tools/video-audio",
+              "tools/document"
+            ]
+          },
+          {
+            "group": "Developer Utilities",
+            "pages": [
+              "tools/text-encoding",
+              "tools/data-formats",
+              "tools/cryptography",
+              "tools/http-networking",
+              "tools/datetime",
+              "tools/file-archive",
+              "tools/frontend",
+              "tools/backend",
+              "tools/code"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "70+ stateless developer tools accessible via MCP stdio or interactive CLI/TUI",
+    "Media processing pipeline (image, video, audio, PDF) powered by DevPixelForge (Rust)",
+    "Design tools: layout analysis, design token management, color palette generation",
+    "AI-powered tools via Gemini API: UI image generation and screenshot-to-Markdown conversion",
+    "Security & cryptography: hashing, HMAC, JWT, password hashing, key generation, secret masking",
+    "Works with Claude Desktop, Cursor, and any MCP-compatible AI client",
+    "Fully stateless — no database, no embeddings, no persistent state",
+    "Zero CGO dependencies; installable via Homebrew or built from source"
+  ],
+  "publicApiSurface": [
+    "analyze_layout",
+    "suggest_layout",
+    "manage_tokens",
+    "suggest_color_palettes",
+    "generate_ui_image",
+    "ui2md",
+    "configure_gemini",
+    "optimize_images",
+    "generate_favicon",
+    "image_resize",
+    "image_convert",
+    "image_crop",
+    "image_rotate",
+    "image_watermark",
+    "image_adjust",
+    "image_quality",
+    "image_srcset",
+    "image_exif",
+    "image_placeholder",
+    "image_palette",
+    "image_sprite",
+    "video_transcode",
+    "video_resize",
+    "video_trim",
+    "video_thumbnail",
+    "video_profile",
+    "audio_normalize",
+    "audio_transcode",
+    "audio_trim",
+    "audio_silence_trim",
+    "markdown_to_pdf",
+    "text_escape",
+    "text_slug",
+    "text_uuid",
+    "text_base64",
+    "text_url_encode",
+    "text_normalize",
+    "text_case",
+    "data_json_format",
+    "data_yaml_convert",
+    "data_csv_convert",
+    "data_jsonpath",
+    "data_schema_validate",
+    "data_diff",
+    "crypto_hash",
+    "crypto_hmac",
+    "crypto_jwt",
+    "crypto_password",
+    "crypto_keygen",
+    "crypto_random",
+    "crypto_mask",
+    "http_request",
+    "http_curl_convert",
+    "http_webhook_replay",
+    "http_signed_url",
+    "http_url_parse",
+    "time_convert",
+    "time_diff",
+    "time_cron",
+    "time_date_range",
+    "file_checksum",
+    "file_archive",
+    "file_diff",
+    "file_line_endings",
+    "file_hex_view",
+    "frontend_color",
+    "frontend_css_unit",
+    "frontend_breakpoint",
+    "frontend_regex",
+    "frontend_locale_format",
+    "frontend_icu_format",
+    "backend_sql_format",
+    "backend_conn_string",
+    "backend_log_parse",
+    "backend_env_inspect",
+    "backend_mq_payload",
+    "code_format",
+    "code_metrics",
+    "code_template"
+  ]
+}

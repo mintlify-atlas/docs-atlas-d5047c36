@@ -1,0 +1,74 @@
+---
+title: 'Configuration'
+description: 'Configure DevForge with a single JSON file. Only Gemini-powered tools require an API key — all other tools work without any configuration.'
+keywords: ['configuration', 'config', 'gemini', 'api key', 'devforge', 'settings']
+---
+
+DevForge reads its configuration from a single JSON file. All settings are optional — the server starts and runs the full utility tool surface without any configuration at all.
+
+## Config file location
+
+```
+~/.config/devforge/config.json
+```
+
+You can override this path by setting the `DEV_FORGE_CONFIG` environment variable to an absolute path:
+
+```bash
+export DEV_FORGE_CONFIG=/etc/devforge/config.json
+```
+
+<Warning>
+  Never commit `~/.config/devforge/config.json` to version control. It contains your Gemini API key.
+</Warning>
+
+## Example config
+
+```json ~/.config/devforge/config.json
+{
+  "gemini_api_key": "",
+  "image_model": "gemini-2.5-flash-image"
+}
+```
+
+## Config fields
+
+<ParamField path="gemini_api_key" type="string">
+  Your Gemini API key. Required only for the following tools:
+
+  - `generate_ui_image` — generate UI images via the Gemini API
+  - `ui2md` — convert UI screenshots to Markdown design specs
+  - `suggest_color_palettes` — generate AI-assisted color palette proposals
+
+  All other tools — including the full 48-tool utility suite — work without this key.
+</ParamField>
+
+<ParamField path="image_model" type="string" default="gemini-2.5-flash-image">
+  The Gemini model used for image generation. Change this if you want to use a different model version for `generate_ui_image` and `ui2md`.
+</ParamField>
+
+### Field summary
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `gemini_api_key` | string | For AI tools only | — | Required for `generate_ui_image`, `ui2md`, and `suggest_color_palettes`. |
+| `image_model` | string | No | `gemini-2.5-flash-image` | Gemini model used for image generation. |
+
+## Runtime hot-reload
+
+You do not need to restart `devforge-mcp` to apply a new API key. Use the `configure_gemini` tool to update the key while the server is running:
+
+```json
+{
+  "name": "configure_gemini",
+  "arguments": {
+    "api_key": "your-gemini-api-key"
+  }
+}
+```
+
+This writes the key to `~/.config/devforge/config.json` and reloads it in memory immediately. The next call to `generate_ui_image`, `ui2md`, or `suggest_color_palettes` picks up the new key without a restart.
+
+<Tip>
+  All 48 utility tools — crypto, HTTP, data, text, file, frontend, backend, and code — work fully offline without any configuration. You only need a Gemini API key if you use the AI-powered image and vision tools.
+</Tip>

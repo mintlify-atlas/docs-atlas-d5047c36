@@ -1,0 +1,354 @@
+---
+title: "Datetime tools"
+description: "Date and time utilities: format conversion, duration arithmetic, cron scheduling, and date range generation."
+---
+
+<Note>
+  All tools in this group are stateless and work fully offline without an API key.
+</Note>
+
+## time\_convert
+
+Convert a timestamp between formats. Auto-detects the input format when `from_format` is omitted.
+
+<ParamField path="input" type="string" required>
+  Timestamp to convert. Accepts any supported format (see table below).
+</ParamField>
+
+<ParamField path="from_format" type="string">
+  Source format: `unix` | `unix_ms` | `iso8601` | `rfc3339` | `human` | `auto`. Defaults to `auto`.
+
+  Auto-detection rules:
+  - Numeric string `> 1_000_000_000_000` → `unix_ms`
+  - Other numeric string → `unix`
+  - All other strings: tries `rfc3339`, `iso8601`, `human` layouts in order
+</ParamField>
+
+<ParamField path="to_format" type="string">
+  Target format: `unix` | `unix_ms` | `iso8601` | `rfc3339` | `human`. Defaults to `rfc3339`.
+</ParamField>
+
+<ParamField path="timezone" type="string">
+  IANA timezone name for the output value (e.g. `America/New_York`, `Europe/Berlin`). Defaults to `UTC`.
+</ParamField>
+
+**Format reference**
+
+| Format | Example |
+|--------|---------|
+| `unix` | `1710498600` |
+| `unix_ms` | `1710498600000` |
+| `iso8601` | `2024-03-15T10:30:00+00:00` |
+| `rfc3339` | `2024-03-15T10:30:00Z` |
+| `human` | `Mar 15, 2024 10:30:00 UTC` |
+
+**Example call — Unix timestamp to RFC 3339**
+
+```json
+{
+  "input": "1710498600",
+  "from_format": "unix",
+  "to_format": "rfc3339",
+  "timezone": "UTC"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "2024-03-15T10:30:00Z",
+  "from_format": "unix",
+  "to_format": "rfc3339",
+  "timezone": "UTC"
+}
+```
+
+**Example call — ISO 8601 to human-readable with timezone**
+
+```json
+{
+  "input": "2024-03-15T10:30:00Z",
+  "to_format": "human",
+  "timezone": "America/New_York"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "Mar 15, 2024 06:30:00 EDT",
+  "from_format": "rfc3339",
+  "to_format": "human",
+  "timezone": "America/New_York"
+}
+```
+
+---
+
+## time\_diff
+
+Compute the duration between two timestamps, or add/subtract a duration from a single timestamp.
+
+<ParamField path="start" type="string" required>
+  Start timestamp. Any supported format is accepted (auto-detected).
+</ParamField>
+
+<ParamField path="end" type="string">
+  End timestamp. Required when `operation` is `diff`.
+</ParamField>
+
+<ParamField path="operation" type="string">
+  `diff` | `add` | `subtract`. Defaults to `diff`.
+</ParamField>
+
+<ParamField path="duration" type="string">
+  Duration to add or subtract. Required for `add` and `subtract` operations.
+
+  Accepted formats:
+  - Go duration string: `2h30m`, `90s`, `1h30m45s`
+  - English expression: `3 days`, `1 week`, `30 minutes`
+
+  Supported English units: `second`, `minute`, `hour`, `day`, `week` (plurals accepted).
+</ParamField>
+
+<ParamField path="unit" type="string">
+  Preferred unit for output display. Not used by the current implementation — the response always returns all units.
+</ParamField>
+
+**Example call — diff between two timestamps**
+
+```json
+{
+  "start": "2024-01-01T00:00:00Z",
+  "end": "2024-01-03T12:00:00Z",
+  "operation": "diff"
+}
+```
+
+**Example response**
+
+```json
+{
+  "seconds": 216000.0,
+  "minutes": 3600.0,
+  "hours": 60.0,
+  "days": 2.5,
+  "human": "2 days 12 hours"
+}
+```
+
+**Example call — add a duration**
+
+```json
+{
+  "start": "2024-06-01T09:00:00Z",
+  "operation": "add",
+  "duration": "2h30m"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "2024-06-01T11:30:00Z"
+}
+```
+
+**Example call — subtract using English expression**
+
+```json
+{
+  "start": "2024-06-10T00:00:00Z",
+  "operation": "subtract",
+  "duration": "3 days"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "2024-06-07T00:00:00Z"
+}
+```
+
+---
+
+## time\_cron
+
+Parse and validate a cron expression, describe it in plain English, or compute the next N scheduled run times.
+
+<ParamField path="expression" type="string" required>
+  Cron expression in 5-field (`minute hour dom month dow`) or 6-field (`second minute hour dom month dow`) format.
+
+  Supported syntax: `*`, `*/N` (step), `N` (exact), `N-M` (range), `N,M` (list), named days/months (`MON`, `JAN`, etc.).
+</ParamField>
+
+<ParamField path="operation" type="string">
+  `describe` — return a plain-English description and validity flag.
+  `next` — return the next N scheduled times in RFC 3339 format.
+
+  Defaults to `describe`.
+</ParamField>
+
+<ParamField path="count" type="number">
+  Number of upcoming run times to return. Only used when `operation` is `next`. Defaults to `5`.
+</ParamField>
+
+<ParamField path="from" type="string">
+  Reference datetime for `next` computation. Defaults to the current time (UTC). Any auto-detectable format is accepted.
+</ParamField>
+
+**Example call — describe a daily job**
+
+```json
+{
+  "expression": "0 9 * * *",
+  "operation": "describe"
+}
+```
+
+**Example response**
+
+```json
+{
+  "description": "At 9:00 AM",
+  "valid": true
+}
+```
+
+**Example call — invalid expression**
+
+```json
+{
+  "expression": "not a cron",
+  "operation": "describe"
+}
+```
+
+**Example response**
+
+```json
+{
+  "valid": false,
+  "error": "expected exactly 5 or 6 fields, found 3: not a cron"
+}
+```
+
+**Example call — next 3 runs of a weekday schedule**
+
+```json
+{
+  "expression": "0 9 * * MON-FRI",
+  "operation": "next",
+  "count": 3,
+  "from": "2024-01-01T00:00:00Z"
+}
+```
+
+**Example response**
+
+```json
+{
+  "next": [
+    "2024-01-01T09:00:00Z",
+    "2024-01-02T09:00:00Z",
+    "2024-01-03T09:00:00Z"
+  ],
+  "count": 3
+}
+```
+
+<Tip>
+  Use `operation: next` with a specific `from` date to preview upcoming runs for a new cron expression before deploying it.
+</Tip>
+
+---
+
+## time\_date\_range
+
+Generate a list of dates between two boundaries with a configurable step size.
+
+<Note>
+  Output is capped at **1000 dates**. The tool returns an error if the requested range would exceed this limit — narrow the range or use a larger step.
+</Note>
+
+<ParamField path="start" type="string" required>
+  Start date in `YYYY-MM-DD` format (or any auto-detectable timestamp — time components are ignored).
+</ParamField>
+
+<ParamField path="end" type="string" required>
+  End date (inclusive). Must be on or after `start`.
+</ParamField>
+
+<ParamField path="step" type="string">
+  Step size: `day` | `week` | `month`. Defaults to `day`.
+</ParamField>
+
+<ParamField path="format" type="string">
+  Output date format: `iso8601` | `unix` | `human`. Defaults to `iso8601`.
+</ParamField>
+
+**Example call — all days in a week**
+
+```json
+{
+  "start": "2024-01-01",
+  "end": "2024-01-07",
+  "step": "day",
+  "format": "iso8601"
+}
+```
+
+**Example response**
+
+```json
+{
+  "dates": [
+    "2024-01-01",
+    "2024-01-02",
+    "2024-01-03",
+    "2024-01-04",
+    "2024-01-05",
+    "2024-01-06",
+    "2024-01-07"
+  ],
+  "count": 7
+}
+```
+
+**Example call — monthly billing dates**
+
+```json
+{
+  "start": "2024-01-01",
+  "end": "2024-12-01",
+  "step": "month",
+  "format": "human"
+}
+```
+
+**Example response**
+
+```json
+{
+  "dates": [
+    "Jan 1, 2024",
+    "Feb 1, 2024",
+    "Mar 1, 2024",
+    "Apr 1, 2024",
+    "May 1, 2024",
+    "Jun 1, 2024",
+    "Jul 1, 2024",
+    "Aug 1, 2024",
+    "Sep 1, 2024",
+    "Oct 1, 2024",
+    "Nov 1, 2024",
+    "Dec 1, 2024"
+  ],
+  "count": 12
+}
+```

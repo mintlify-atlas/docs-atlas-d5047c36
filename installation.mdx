@@ -1,0 +1,88 @@
+---
+title: 'Installation'
+description: 'Install DevForge via Homebrew (recommended) or build from source on Linux amd64 and macOS arm64.'
+keywords: ['devforge', 'install', 'homebrew', 'from source', 'go', 'setup']
+---
+
+DevForge supports two installation methods. Homebrew is recommended — it installs all three binaries and creates a starter config automatically.
+
+**Supported platforms:** Linux amd64, macOS arm64.
+
+## Install DevForge
+
+<Steps>
+  <Step title="Install via Homebrew or build from source">
+    <CodeGroup>
+
+    ```bash Homebrew (recommended)
+    brew install GustavoGutierrez/devforge/devforge
+    ```
+
+    ```bash From source
+    git clone https://github.com/GustavoGutierrez/devforge.git
+    cd devforge
+    go build ./...
+    bash scripts/install-dpf.sh
+    ```
+
+    </CodeGroup>
+
+    The Homebrew install places all three binaries (`devforge`, `devforge-mcp`, `dpf`) into your Homebrew prefix and automatically creates a starter config at `~/.config/devforge/config.json` if one does not already exist.
+
+    The source build places `devforge` and `devforge-mcp` in the project root and `dpf` at `bin/dpf`. Add both locations to your `$PATH` or copy the binaries to a directory already on it.
+
+    <Note>
+      Building from source requires Go 1.24+. CGO is not required.
+    </Note>
+  </Step>
+
+  <Step title="Install FFmpeg (optional — video and audio tools only)">
+    DevForge does not depend on FFmpeg at install time. Video and audio tools (`video_transcode`, `audio_normalize`, and others) call `ffmpeg` as a subprocess at runtime. Install it only if you need those tools:
+
+    ```bash
+    brew install ffmpeg
+    ```
+  </Step>
+
+  <Step title="Verify the installation">
+    Confirm all three binaries are available:
+
+    ```bash
+    devforge --version
+    devforge-mcp --version
+    dpf --version
+    ```
+  </Step>
+</Steps>
+
+## Upgrading
+
+To upgrade to a newer version with Homebrew:
+
+```bash
+brew update && brew upgrade gustavogutierrez/devforge/devforge
+```
+
+Homebrew downloads the new bundle, swaps the Cellar entry, and cleans up the old version automatically.
+
+## Configuration
+
+DevForge reads its configuration from `~/.config/devforge/config.json`. Homebrew creates this file automatically on first install. For source builds, create it manually:
+
+```json ~/.config/devforge/config.json
+{
+  "gemini_api_key": "",
+  "image_model": "gemini-2.5-flash-image"
+}
+```
+
+| Field | Required | Default | Description |
+|-------|----------|---------|-------------|
+| `gemini_api_key` | For AI tools only | — | Required for `generate_ui_image` and `suggest_color_palettes`. All other tools work without a key. |
+| `image_model` | No | `gemini-2.5-flash-image` | Gemini model used for image generation. |
+
+You can override the config file path by setting the `DEV_FORGE_CONFIG` environment variable.
+
+<Note>
+  `dpf` must be colocated with `devforge-mcp` or available on `$PATH` for media tools (image, video, audio, PDF) to work. Homebrew handles this automatically.
+</Note>

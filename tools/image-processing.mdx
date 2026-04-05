@@ -1,0 +1,883 @@
+---
+title: "Image processing tools"
+description: "Optimize, resize, convert, crop, watermark, and transform images using the dpf (DevPixelForge) Rust engine."
+---
+
+<Warning>
+  All image processing tools require the `dpf` binary to be installed alongside the `devforge-mcp` server. Run `bash scripts/install-dpf.sh` from the repository root to install it, or download a release bundle which includes `bin/dpf` pre-bundled.
+</Warning>
+
+---
+
+## optimize\_images
+
+Bulk-optimizes one or more images using the dpf engine. Each input can specify its own quality, size constraints, and output formats. Results include the output path and approximate file size for each variant produced.
+
+### Parameters
+
+<ParamField body="inputs" type="object[]" required>
+  Array of image optimization requests.
+
+  <Expandable title="OptimizeInput fields">
+    <ParamField body="path" type="string" required>
+      Path to the source image.
+    </ParamField>
+
+    <ParamField body="max_width" type="number">
+      Maximum output width in pixels.
+    </ParamField>
+
+    <ParamField body="max_height" type="number">
+      Maximum output height in pixels.
+    </ParamField>
+
+    <ParamField body="formats" type="string[]">
+      Output formats to produce. For example `["webp", "jpeg"]`. Defaults to `["webp"]`.
+    </ParamField>
+
+    <ParamField body="quality" type="number">
+      Encoding quality 1–100. Defaults to `85`.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="parallelism" type="number">
+  Maximum number of images to process in parallel. Defaults to `4`.
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "optimize_images",
+  "arguments": {
+    "inputs": [
+      {
+        "path": "/project/assets/hero.png",
+        "max_width": 1920,
+        "formats": ["webp", "jpeg"],
+        "quality": 82
+      },
+      {
+        "path": "/project/assets/thumbnail.jpg",
+        "formats": ["webp"],
+        "quality": 75
+      }
+    ],
+    "parallelism": 4
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "results": [
+    {
+      "source_path": "/project/assets/hero.png",
+      "outputs": [
+        { "format": "webp", "path": "/project/assets/hero.webp", "width": 1920, "height": 1080, "approx_size_kb": 148 },
+        { "format": "jpeg", "path": "/project/assets/hero.jpg", "width": 1920, "height": 1080, "approx_size_kb": 212 }
+      ]
+    },
+    {
+      "source_path": "/project/assets/thumbnail.jpg",
+      "outputs": [
+        { "format": "webp", "path": "/project/assets/thumbnail.webp", "width": 400, "height": 300, "approx_size_kb": 18 }
+      ]
+    }
+  ]
+}
+```
+
+---
+
+## generate\_favicon
+
+Generates a complete set of favicon variants from a source PNG or SVG. Produces `.ico`, `.png`, and `.svg` files in a `favicons/` directory alongside the source, and returns ready-to-paste `<link>` HTML snippets.
+
+### Parameters
+
+<ParamField body="source_path" type="string" required>
+  Path to the source image. PNG or SVG recommended.
+</ParamField>
+
+<ParamField body="background_color" type="string">
+  Hex color for the background of transparent sources. Defaults to `#ffffff`.
+</ParamField>
+
+<ParamField body="sizes" type="number[]">
+  Icon sizes in pixels. Defaults to `[16, 32, 48, 180, 192, 512]`.
+</ParamField>
+
+<ParamField body="formats" type="string[]">
+  Output formats. One or more of `ico`, `png`, `svg`. Defaults to all three.
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "generate_favicon",
+  "arguments": {
+    "source_path": "/project/public/logo.png",
+    "background_color": "#0f172a",
+    "sizes": [16, 32, 180, 192, 512],
+    "formats": ["ico", "png"]
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "icons": [
+    { "size": 16,  "format": "ico", "path": "/project/public/favicons/favicon-16x16.ico" },
+    { "size": 32,  "format": "png", "path": "/project/public/favicons/favicon-32x32.png" },
+    { "size": 180, "format": "png", "path": "/project/public/favicons/favicon-180x180.png" },
+    { "size": 192, "format": "png", "path": "/project/public/favicons/favicon-192x192.png" },
+    { "size": 512, "format": "png", "path": "/project/public/favicons/favicon-512x512.png" }
+  ],
+  "html_snippets": [
+    "<link rel=\"icon\" href=\"/favicon.ico\">",
+    "<link rel=\"icon\" type=\"image/png\" sizes=\"32x32\" href=\"/project/public/favicons/favicon-32x32.png\">",
+    "<link rel=\"apple-touch-icon\" sizes=\"180x180\" href=\"/project/public/favicons/favicon-180x180.png\">",
+    "<link rel=\"icon\" type=\"image/png\" sizes=\"192x192\" href=\"/project/public/favicons/favicon-192x192.png\">",
+    "<link rel=\"icon\" type=\"image/png\" sizes=\"512x512\" href=\"/project/public/favicons/favicon-512x512.png\">"
+  ]
+}
+```
+
+---
+
+## image\_resize
+
+Resizes an image to one or more target widths, or by a percentage scale. Produces one output file per width in the specified output directory.
+
+### Parameters
+
+<ParamField body="input" type="string" required>
+  Input image path.
+</ParamField>
+
+<ParamField body="output_dir" type="string">
+  Directory for resized outputs. Required unless you are using `scale_percent` only.
+</ParamField>
+
+<ParamField body="widths" type="number[]">
+  Target widths in pixels. For example `[640, 1280, 1920]`.
+</ParamField>
+
+<ParamField body="scale_percent" type="number">
+  Scale factor as a percentage. For example `50.0` halves the image.
+</ParamField>
+
+<ParamField body="max_height" type="number">
+  Maximum height constraint in pixels.
+</ParamField>
+
+<ParamField body="format" type="string">
+  Output format. One of `webp`, `jpeg`, `png`, or `avif`.
+</ParamField>
+
+<ParamField body="quality" type="number">
+  Encoding quality 1–100.
+</ParamField>
+
+<ParamField body="filter" type="string">
+  Resampling filter. One of `lanczos3`, `gaussian`, or `bilinear`. `lanczos3` gives the highest quality for downscaling.
+</ParamField>
+
+<ParamField body="linear_rgb" type="boolean">
+  Process in linear RGB color space for perceptually better quality. Defaults to `false`.
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "image_resize",
+  "arguments": {
+    "input": "/project/assets/banner.jpg",
+    "output_dir": "/project/assets/responsive",
+    "widths": [640, 1024, 1440],
+    "format": "webp",
+    "quality": 82,
+    "filter": "lanczos3"
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "success": true,
+  "variants": [
+    { "path": "/project/assets/responsive/banner-640.webp",  "width": 640,  "height": 360, "format": "webp", "size_kb": 38 },
+    { "path": "/project/assets/responsive/banner-1024.webp", "width": 1024, "height": 576, "format": "webp", "size_kb": 82 },
+    { "path": "/project/assets/responsive/banner-1440.webp", "width": 1440, "height": 810, "format": "webp", "size_kb": 134 }
+  ],
+  "elapsed_ms": 420
+}
+```
+
+---
+
+## image\_convert
+
+Converts an image to a different format, with optional quality and dimension overrides.
+
+### Parameters
+
+<ParamField body="input" type="string" required>
+  Input image path.
+</ParamField>
+
+<ParamField body="output" type="string" required>
+  Output image path.
+</ParamField>
+
+<ParamField body="format" type="string" required>
+  Target format. One of `webp`, `jpeg`, `png`, `avif`, or `gif`.
+</ParamField>
+
+<ParamField body="quality" type="number">
+  Encoding quality 1–100.
+</ParamField>
+
+<ParamField body="width" type="number">
+  Target width in pixels (optional resize during conversion).
+</ParamField>
+
+<ParamField body="height" type="number">
+  Target height in pixels (optional resize during conversion).
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "image_convert",
+  "arguments": {
+    "input": "/project/assets/photo.png",
+    "output": "/project/assets/photo.avif",
+    "format": "avif",
+    "quality": 75
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "success": true,
+  "output_path": "/project/assets/photo.avif",
+  "width": 1200,
+  "height": 800,
+  "format": "avif",
+  "size_kb": 64,
+  "elapsed_ms": 185
+}
+```
+
+---
+
+## image\_crop
+
+Crops an image to an exact pixel rectangle.
+
+### Parameters
+
+<ParamField body="input" type="string" required>
+  Input image path.
+</ParamField>
+
+<ParamField body="output" type="string" required>
+  Output image path.
+</ParamField>
+
+<ParamField body="x" type="number" required>
+  X coordinate of the top-left corner of the crop area.
+</ParamField>
+
+<ParamField body="y" type="number" required>
+  Y coordinate of the top-left corner of the crop area.
+</ParamField>
+
+<ParamField body="width" type="number" required>
+  Width of the crop area in pixels.
+</ParamField>
+
+<ParamField body="height" type="number" required>
+  Height of the crop area in pixels.
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "image_crop",
+  "arguments": {
+    "input": "/project/assets/screenshot.png",
+    "output": "/project/assets/screenshot-cropped.png",
+    "x": 120,
+    "y": 80,
+    "width": 960,
+    "height": 540
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "success": true,
+  "output_path": "/project/assets/screenshot-cropped.png",
+  "width": 960,
+  "height": 540,
+  "elapsed_ms": 28
+}
+```
+
+---
+
+## image\_rotate
+
+Rotates and/or flips an image.
+
+### Parameters
+
+<ParamField body="input" type="string" required>
+  Input image path.
+</ParamField>
+
+<ParamField body="output" type="string" required>
+  Output image path.
+</ParamField>
+
+<ParamField body="angle" type="number">
+  Rotation angle in degrees. Valid values: `90`, `180`, `270`.
+</ParamField>
+
+<ParamField body="flip_h" type="boolean">
+  Flip horizontally (mirror left–right). Defaults to `false`.
+</ParamField>
+
+<ParamField body="flip_v" type="boolean">
+  Flip vertically (mirror top–bottom). Defaults to `false`.
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "image_rotate",
+  "arguments": {
+    "input": "/project/assets/photo.jpg",
+    "output": "/project/assets/photo-rotated.jpg",
+    "angle": 90
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "success": true,
+  "output_path": "/project/assets/photo-rotated.jpg",
+  "width": 800,
+  "height": 1200,
+  "elapsed_ms": 14
+}
+```
+
+---
+
+## image\_watermark
+
+Adds a text or image watermark to a photo. Supports center, tiled, or custom pixel-position placement.
+
+### Parameters
+
+<ParamField body="input" type="string" required>
+  Input image path.
+</ParamField>
+
+<ParamField body="output" type="string" required>
+  Output image path.
+</ParamField>
+
+<ParamField body="text" type="string">
+  Text watermark string. Provide either `text` or `image_path`.
+</ParamField>
+
+<ParamField body="image_path" type="string">
+  Path to an image to use as the watermark. Provide either `text` or `image_path`.
+</ParamField>
+
+<ParamField body="position" type="string">
+  Watermark placement. One of `center`, `tile`, or `custom`. Use `custom` with `x` and `y`.
+</ParamField>
+
+<ParamField body="x" type="number">
+  X offset in pixels for `custom` position.
+</ParamField>
+
+<ParamField body="y" type="number">
+  Y offset in pixels for `custom` position.
+</ParamField>
+
+<ParamField body="opacity" type="number">
+  Watermark opacity from `0.0` (invisible) to `1.0` (fully opaque). Defaults to `1.0`.
+</ParamField>
+
+<ParamField body="size" type="number">
+  Font size in pixels for text watermarks.
+</ParamField>
+
+<ParamField body="color" type="string">
+  Text color as a hex value. For example `#ffffff`.
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "image_watermark",
+  "arguments": {
+    "input": "/project/photos/product.jpg",
+    "output": "/project/photos/product-wm.jpg",
+    "text": "© Acme Corp 2025",
+    "position": "center",
+    "opacity": 0.35,
+    "size": 48,
+    "color": "#ffffff"
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "success": true,
+  "output_path": "/project/photos/product-wm.jpg",
+  "elapsed_ms": 31
+}
+```
+
+---
+
+## image\_adjust
+
+Adjusts brightness, contrast, saturation, blur, and sharpness of an image.
+
+### Parameters
+
+<ParamField body="input" type="string" required>
+  Input image path.
+</ParamField>
+
+<ParamField body="output" type="string" required>
+  Output image path.
+</ParamField>
+
+<ParamField body="brightness" type="number">
+  Brightness offset from `-100` to `100`. Positive values brighten, negative darken.
+</ParamField>
+
+<ParamField body="contrast" type="number">
+  Contrast offset from `-100` to `100`.
+</ParamField>
+
+<ParamField body="saturation" type="number">
+  Saturation offset from `-100` to `100`. Use `-100` for grayscale.
+</ParamField>
+
+<ParamField body="blur" type="number">
+  Blur radius in pixels.
+</ParamField>
+
+<ParamField body="sharpen" type="number">
+  Sharpen amount. Higher values produce a crisper result.
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "image_adjust",
+  "arguments": {
+    "input": "/project/assets/photo.jpg",
+    "output": "/project/assets/photo-adjusted.jpg",
+    "brightness": 10,
+    "contrast": 15,
+    "saturation": -20
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "success": true,
+  "output_path": "/project/assets/photo-adjusted.jpg",
+  "elapsed_ms": 22
+}
+```
+
+---
+
+## image\_quality
+
+Reduces an image to a target file size using binary search over the quality setting. Useful for enforcing strict size budgets on uploads or CDN assets.
+
+### Parameters
+
+<ParamField body="input" type="string" required>
+  Input image path.
+</ParamField>
+
+<ParamField body="output" type="string" required>
+  Output image path.
+</ParamField>
+
+<ParamField body="target_size_kb" type="number" required>
+  Target maximum file size in kilobytes.
+</ParamField>
+
+<ParamField body="format" type="string">
+  Output format. One of `webp`, `jpeg`, or `png`.
+</ParamField>
+
+<ParamField body="max_quality" type="number">
+  Upper quality bound 1–100 for the search range.
+</ParamField>
+
+<ParamField body="min_quality" type="number">
+  Lower quality bound 1–100 for the search range.
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "image_quality",
+  "arguments": {
+    "input": "/project/assets/hero.jpg",
+    "output": "/project/assets/hero-optimized.webp",
+    "target_size_kb": 120,
+    "format": "webp",
+    "max_quality": 90,
+    "min_quality": 40
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "success": true,
+  "output_path": "/project/assets/hero-optimized.webp",
+  "actual_size_kb": 118,
+  "quality_used": 67,
+  "elapsed_ms": 95
+}
+```
+
+---
+
+## image\_srcset
+
+Generates a set of responsive image variants for use in an HTML `srcset` attribute. All variants are written to the output directory.
+
+### Parameters
+
+<ParamField body="input" type="string" required>
+  Input image path.
+</ParamField>
+
+<ParamField body="output_dir" type="string" required>
+  Directory where variants are written.
+</ParamField>
+
+<ParamField body="widths" type="number[]">
+  Target widths in pixels. For example `[320, 640, 960, 1280]`.
+</ParamField>
+
+<ParamField body="sizes" type="string[]">
+  HTML `sizes` attribute values. For example `["100vw", "(min-width: 768px) 50vw"]`.
+</ParamField>
+
+<ParamField body="format" type="string">
+  Output format. One of `webp`, `jpeg`, or `png`.
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "image_srcset",
+  "arguments": {
+    "input": "/project/assets/hero.jpg",
+    "output_dir": "/project/assets/srcset",
+    "widths": [320, 640, 960, 1280],
+    "format": "webp"
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "success": true,
+  "variants": [
+    { "path": "/project/assets/srcset/hero-320.webp",  "width": 320,  "format": "webp", "size_kb": 14 },
+    { "path": "/project/assets/srcset/hero-640.webp",  "width": 640,  "format": "webp", "size_kb": 38 },
+    { "path": "/project/assets/srcset/hero-960.webp",  "width": 960,  "format": "webp", "size_kb": 74 },
+    { "path": "/project/assets/srcset/hero-1280.webp", "width": 1280, "format": "webp", "size_kb": 118 }
+  ],
+  "elapsed_ms": 260
+}
+```
+
+---
+
+## image\_exif
+
+Reads, strips, preserves, or auto-orients EXIF metadata in an image.
+
+### Parameters
+
+<ParamField body="input" type="string" required>
+  Input image path.
+</ParamField>
+
+<ParamField body="output" type="string">
+  Output image path. Required for `strip`, `preserve`, and `auto_orient` operations.
+</ParamField>
+
+<ParamField body="exif_op" type="string" required>
+  EXIF operation to perform. One of:
+
+  - `strip` — remove all EXIF data
+  - `preserve` — copy file with EXIF intact
+  - `extract` — return EXIF data as JSON in the `data` field
+  - `auto_orient` — rotate the image according to the EXIF orientation tag, then strip the tag
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "image_exif",
+  "arguments": {
+    "input": "/project/photos/DSC_0042.jpg",
+    "output": "/project/photos/DSC_0042-clean.jpg",
+    "exif_op": "strip"
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "success": true,
+  "output_path": "/project/photos/DSC_0042-clean.jpg",
+  "elapsed_ms": 12
+}
+```
+
+---
+
+## image\_placeholder
+
+Generates lightweight image placeholders for progressive loading. Produces a low-quality preview image (LQIP), a dominant color value, or a CSS gradient string.
+
+### Parameters
+
+<ParamField body="input" type="string" required>
+  Input image path.
+</ParamField>
+
+<ParamField body="output" type="string">
+  Output file path for the placeholder image.
+</ParamField>
+
+<ParamField body="kind" type="string">
+  Placeholder type. One of `lqip`, `dominant_color`, or `css_gradient`. Defaults to `lqip`.
+</ParamField>
+
+<ParamField body="lqip_width" type="number">
+  Width of the LQIP image in pixels. Smaller values produce smaller base64 strings.
+</ParamField>
+
+<ParamField body="inline" type="boolean">
+  When `true`, returns base64-encoded placeholder data in `data_base64` instead of writing a file.
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "image_placeholder",
+  "arguments": {
+    "input": "/project/assets/hero.jpg",
+    "kind": "lqip",
+    "lqip_width": 32,
+    "inline": true
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "success": true,
+  "data_base64": "data:image/webp;base64,UklGRkAAAABXRUJQVlA4...",
+  "dominant_color": "#3b5e8c",
+  "lqip_dimensions": "32x18",
+  "elapsed_ms": 8
+}
+```
+
+---
+
+## image\_palette
+
+Reduces an image to a limited color palette or extracts the dominant colors. Useful for generating themed color sets from product images or brand photos.
+
+### Parameters
+
+<ParamField body="input" type="string" required>
+  Input image path.
+</ParamField>
+
+<ParamField body="output_dir" type="string" required>
+  Directory where the palette image is written.
+</ParamField>
+
+<ParamField body="max_colors" type="number">
+  Maximum number of colors in the palette. Defaults to `16`.
+</ParamField>
+
+<ParamField body="dithering" type="number">
+  Dithering amount from `0.0` (none) to `1.0` (full). Controls color diffusion in the output image.
+</ParamField>
+
+<ParamField body="format" type="string">
+  Output format for the palette image. One of `gif` or `png`.
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "image_palette",
+  "arguments": {
+    "input": "/project/assets/brand-photo.jpg",
+    "output_dir": "/project/assets/palette",
+    "max_colors": 8,
+    "format": "png"
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "success": true,
+  "output_path": "/project/assets/palette/brand-photo-palette.png",
+  "colors": [
+    "#1a2b3c",
+    "#e8c86d",
+    "#f5f0e8",
+    "#c4472a",
+    "#4e8fb5",
+    "#8a6b4f",
+    "#d4d0c8",
+    "#2e4a1e"
+  ],
+  "elapsed_ms": 44
+}
+```
+
+---
+
+## image\_sprite
+
+Packs multiple images into a single sprite sheet. Optionally generates a CSS file with background-position offsets for each sprite.
+
+### Parameters
+
+<ParamField body="inputs" type="string[]" required>
+  Array of input image paths to include in the sprite.
+</ParamField>
+
+<ParamField body="output" type="string" required>
+  Output path for the sprite sheet image.
+</ParamField>
+
+<ParamField body="cell_size" type="number">
+  Fixed cell size (width = height) in pixels. When omitted, cells adapt to the largest input image.
+</ParamField>
+
+<ParamField body="columns" type="number">
+  Number of columns in the sprite grid.
+</ParamField>
+
+<ParamField body="padding" type="number">
+  Padding between sprites in pixels.
+</ParamField>
+
+<ParamField body="generate_css" type="boolean">
+  When `true`, writes a companion `.css` file with background-position rules. Defaults to `false`.
+</ParamField>
+
+### Example call
+
+```json
+{
+  "name": "image_sprite",
+  "arguments": {
+    "inputs": [
+      "/project/icons/home.png",
+      "/project/icons/search.png",
+      "/project/icons/settings.png",
+      "/project/icons/profile.png"
+    ],
+    "output": "/project/assets/icons-sprite.png",
+    "cell_size": 32,
+    "columns": 4,
+    "padding": 4,
+    "generate_css": true
+  }
+}
+```
+
+### Example response
+
+```json
+{
+  "success": true,
+  "sprite_path": "/project/assets/icons-sprite.png",
+  "css_path": "/project/assets/icons-sprite.css",
+  "columns": 4,
+  "cell_width": 32,
+  "cell_height": 32,
+  "total_images": 4,
+  "elapsed_ms": 19
+}
+```

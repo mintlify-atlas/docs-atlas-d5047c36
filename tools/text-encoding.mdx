@@ -1,0 +1,338 @@
+---
+title: 'Text encoding tools'
+description: 'Stateless text manipulation and encoding tools: escape, slug, UUID, base64, URL encoding, normalization, and case conversion.'
+keywords: ['text', 'encoding', 'escape', 'slug', 'uuid', 'base64', 'url encode', 'normalize', 'case convert']
+---
+
+<Note>All tools in this group are stateless and work fully offline without an API key.</Note>
+
+## text_escape
+
+Escape or unescape a string for a specific syntax target: JSON, JavaScript, HTML, or SQL.
+
+<ParamField path="text" type="string" required>
+  Input string to escape or unescape.
+</ParamField>
+
+<ParamField path="target" type="string" default="json">
+  Escaping target. One of: `json`, `js`, `html`, `sql`.
+</ParamField>
+
+<ParamField path="operation" type="string" default="escape">
+  Operation to perform. One of: `escape`, `unescape`.
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "text": "Say \"hello\" & <goodbye>",
+  "target": "html",
+  "operation": "escape"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "Say &quot;hello&quot; &amp; &lt;goodbye&gt;"
+}
+```
+
+<AccordionGroup>
+  <Accordion title="Escape rules by target">
+
+| Target | Escape behavior | Unescape behavior |
+|--------|-----------------|-------------------|
+| `json` | `encoding/json` marshal without outer quotes — escapes `\n`, `\t`, `"`, `\`, etc. | `json.Unmarshal` of a quoted string |
+| `html` | `html.EscapeString` — encodes `<`, `>`, `&`, `"`, `'` | `html.UnescapeString` |
+| `js`   | Backslash, double-quote, single-quote, `\n`, `\r`, `\t` | Reverse substitutions |
+| `sql`  | Doubles single quotes (`'` → `''`) | Halves doubled single quotes (`''` → `'`) |
+
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## text_slug
+
+Convert arbitrary text to a URL-safe slug by normalizing Unicode, mapping non-ASCII Latin characters to ASCII, and collapsing non-alphanumeric runs to a separator.
+
+<ParamField path="text" type="string" required>
+  Input text to slugify.
+</ParamField>
+
+<ParamField path="separator" type="string" default="-">
+  Word separator character (single character).
+</ParamField>
+
+<ParamField path="lower" type="boolean" default="true">
+  Convert the result to lowercase before applying the separator.
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "text": "Héllo Wörld! — A Café Story",
+  "separator": "-",
+  "lower": true
+}
+```
+
+**Example response**
+
+```json
+{
+  "slug": "hello-world-a-cafe-story"
+}
+```
+
+<Tip>
+  Common accented characters are transliterated automatically: `é` → `e`, `ü` → `u`, `ß` → `ss`, `ñ` → `n`, and so on.
+</Tip>
+
+---
+
+## text_uuid
+
+Generate a unique identifier. Three kinds are supported: UUID v4, nanoid, and a hex-encoded random token.
+
+<ParamField path="kind" type="string" default="uuid4">
+  Kind of identifier to generate. One of: `uuid4`, `nanoid`, `token`.
+</ParamField>
+
+<ParamField path="length" type="number" default="21">
+  Length of the generated value. Applies to `nanoid` and `token` only.
+  For `token`, the hex output is twice `length` characters long (e.g., `length: 16` → 32-char hex string).
+</ParamField>
+
+**Example call — UUID v4**
+
+```json
+{
+  "kind": "uuid4"
+}
+```
+
+**Example response**
+
+```json
+{
+  "value": "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+}
+```
+
+**Example call — nanoid**
+
+```json
+{
+  "kind": "nanoid",
+  "length": 16
+}
+```
+
+**Example response**
+
+```json
+{
+  "value": "V1StGXR8_Z5jdHi6"
+}
+```
+
+<AccordionGroup>
+  <Accordion title="Kind details">
+
+| Kind | Description | Alphabet / encoding |
+|------|-------------|---------------------|
+| `uuid4` | RFC 4122 UUID v4 via `github.com/google/uuid` | Standard UUID format with hyphens |
+| `nanoid` | Random URL-safe string | `A-Za-z0-9_-` (64-char alphabet) |
+| `token` | Cryptographically random bytes, hex-encoded | Output length = 2 × `length` |
+
+All kinds draw entropy from `crypto/rand`.
+
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## text_base64
+
+Encode or decode a string using Base64. Supports the standard RFC 4648 alphabet and the URL-safe variant.
+
+<ParamField path="text" type="string" required>
+  Input string to encode or decode.
+</ParamField>
+
+<ParamField path="variant" type="string" default="standard">
+  Base64 variant. One of: `standard` (`A-Za-z0-9+/` with `=` padding), `urlsafe` (`A-Za-z0-9-_` with `=` padding).
+</ParamField>
+
+<ParamField path="operation" type="string" default="encode">
+  Operation to perform. One of: `encode`, `decode`.
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "text": "hello world",
+  "variant": "standard",
+  "operation": "encode"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "aGVsbG8gd29ybGQ="
+}
+```
+
+<Note>Decode accepts both padded and unpadded input — padding is optional when decoding.</Note>
+
+---
+
+## text_url_encode
+
+Percent-encode or decode a URL query parameter or path segment.
+
+<ParamField path="text" type="string" required>
+  Input string to encode or decode.
+</ParamField>
+
+<ParamField path="operation" type="string" default="encode">
+  Operation to perform. One of: `encode`, `decode`.
+</ParamField>
+
+<ParamField path="mode" type="string" default="query">
+  Encoding mode. One of: `query` (spaces become `+`), `path` (spaces become `%20`).
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "text": "hello world & more",
+  "operation": "encode",
+  "mode": "query"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "hello+world+%26+more"
+}
+```
+
+<AccordionGroup>
+  <Accordion title="Mode differences">
+
+| Mode | Space encoding | Implementation |
+|------|----------------|----------------|
+| `query` | `+` | `url.QueryEscape` / `url.QueryUnescape` |
+| `path` | `%20` | `url.PathEscape` / `url.PathUnescape` |
+
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## text_normalize
+
+Apply one or more normalization operations to text in a specified order. Useful for cleaning copy-pasted content, fixing line endings, or applying Unicode canonical forms.
+
+<ParamField path="text" type="string" required>
+  Input text to normalize.
+</ParamField>
+
+<ParamField path="operations" type="string[]" required>
+  Ordered list of operations to apply. Operations are executed left-to-right.
+  Valid values: `trim_whitespace`, `normalize_newlines`, `strip_bom`, `nfc`, `nfd`, `nfkc`, `nfkd`.
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "text": "  \r\nhello\r\n  ",
+  "operations": ["normalize_newlines", "trim_whitespace"]
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "hello"
+}
+```
+
+<AccordionGroup>
+  <Accordion title="Operation reference">
+
+| Operation | Effect |
+|-----------|--------|
+| `trim_whitespace` | Remove leading and trailing whitespace |
+| `normalize_newlines` | Normalize `\r\n` and bare `\r` to `\n` |
+| `strip_bom` | Remove the UTF-8 BOM (`\xEF\xBB\xBF`) if present |
+| `nfc` | Unicode NFC — canonical decomposition, then canonical composition |
+| `nfd` | Unicode NFD — canonical decomposition |
+| `nfkc` | Unicode NFKC — compatibility decomposition, then canonical composition |
+| `nfkd` | Unicode NFKD — compatibility decomposition |
+
+  </Accordion>
+</AccordionGroup>
+
+<Tip>Stack `normalize_newlines` before `trim_whitespace` when cleaning user-submitted text from Windows clients.</Tip>
+
+---
+
+## text_case
+
+Convert text between common naming conventions. Handles spaces, hyphens, underscores, and camelCase/PascalCase boundaries as word separators.
+
+<ParamField path="text" type="string" required>
+  Input text to convert. May be in any supported convention or a mix.
+</ParamField>
+
+<ParamField path="target_case" type="string" required>
+  Target naming convention. One of: `camel`, `pascal`, `snake`, `kebab`, `screaming_snake`.
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "text": "helloWorldFoo",
+  "target_case": "snake"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "hello_world_foo"
+}
+```
+
+<AccordionGroup>
+  <Accordion title="Supported conventions">
+
+| Value | Example output |
+|-------|----------------|
+| `camel` | `helloWorldFoo` |
+| `pascal` | `HelloWorldFoo` |
+| `snake` | `hello_world_foo` |
+| `kebab` | `hello-world-foo` |
+| `screaming_snake` | `HELLO_WORLD_FOO` |
+
+Word boundaries are detected at: spaces, underscores, hyphens, and lowercase-to-uppercase transitions.
+
+  </Accordion>
+</AccordionGroup>

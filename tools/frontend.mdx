@@ -1,0 +1,588 @@
+---
+title: "Frontend tools"
+description: "Color conversion, CSS unit conversion, responsive breakpoints, regex evaluation, locale formatting, and ICU message formatting."
+---
+
+<Note>
+  All tools in this group are stateless and work fully offline without an API key.
+</Note>
+
+## frontend\_color
+
+Convert a color between HEX, RGB, HSL, HSLA, and RGBA formats. Optionally compute the WCAG 2.1 contrast ratio against a second color.
+
+<ParamField path="color" type="string" required>
+  Source color in any of these formats: `#RRGGBB`, `#RGB`, `rgb(r, g, b)`, or `hsl(h, s%, l%)`.
+</ParamField>
+
+<ParamField path="to" type="string">
+  Target format: `hex` | `rgb` | `hsl` | `hsla` | `rgba`. Defaults to `hex`.
+</ParamField>
+
+<ParamField path="alpha" type="number">
+  Alpha channel value from `0.0` to `1.0`. Used for `rgba` and `hsla` output. Defaults to `1.0`.
+</ParamField>
+
+<ParamField path="against" type="string">
+  Optional second color (same formats as `color`) to compute the WCAG 2.1 contrast ratio against. When provided, the response includes `contrast_ratio`, `wcag_aa`, and `wcag_aaa`.
+</ParamField>
+
+**WCAG thresholds**
+
+| Level | Contrast ratio | Use case |
+|-------|---------------|----------|
+| AA | ≥ 4.5:1 | Normal text |
+| AAA | ≥ 7.0:1 | Enhanced / small text |
+
+**Example call — convert hex to HSL**
+
+```json
+{
+  "color": "#3b82f6",
+  "to": "hsl"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "hsl(217, 91%, 60%)"
+}
+```
+
+**Example call — RGBA with transparency**
+
+```json
+{
+  "color": "#3b82f6",
+  "to": "rgba",
+  "alpha": 0.75
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "rgba(59, 130, 246, 0.75)"
+}
+```
+
+**Example call — check contrast ratio**
+
+```json
+{
+  "color": "#1e40af",
+  "to": "hex",
+  "against": "#ffffff"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "#1e40af",
+  "contrast_ratio": 7.23,
+  "wcag_aa": true,
+  "wcag_aaa": true
+}
+```
+
+---
+
+## frontend\_css\_unit
+
+Convert CSS values between `px`, `rem`, `em`, `percent`, `vw`, and `vh`.
+
+<ParamField path="value" type="number" required>
+  Source numeric value (without unit suffix).
+</ParamField>
+
+<ParamField path="from" type="string" required>
+  Source unit: `px` | `rem` | `em` | `percent` | `vw` | `vh`.
+</ParamField>
+
+<ParamField path="to" type="string" required>
+  Target unit: `px` | `rem` | `em` | `percent` | `vw` | `vh`.
+</ParamField>
+
+<ParamField path="base_font_size" type="number">
+  Root `<html>` font size in px. Used for `rem` conversions. Defaults to `16`.
+</ParamField>
+
+<ParamField path="viewport_width" type="number">
+  Viewport width in px. Used for `vw` conversions. Defaults to `1440`.
+</ParamField>
+
+<ParamField path="viewport_height" type="number">
+  Viewport height in px. Used for `vh` conversions. Defaults to `900`.
+</ParamField>
+
+<ParamField path="parent_size" type="number">
+  Parent element size in px. Used for `em` and `percent` conversions. Defaults to `16`.
+</ParamField>
+
+**Example call — 24 px to rem**
+
+```json
+{
+  "value": 24,
+  "from": "px",
+  "to": "rem",
+  "base_font_size": 16
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": 1.5,
+  "from": "px",
+  "to": "rem",
+  "formatted": "1.5rem"
+}
+```
+
+**Example call — 50% of 800 px parent to px**
+
+```json
+{
+  "value": 50,
+  "from": "percent",
+  "to": "px",
+  "parent_size": 800
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": 400,
+  "from": "percent",
+  "to": "px",
+  "formatted": "400px"
+}
+```
+
+<Tip>
+  All intermediate calculations use `px` as a common pivot unit. Set `base_font_size`, `viewport_width`, `viewport_height`, and `parent_size` to match your project's actual values for accurate results.
+</Tip>
+
+---
+
+## frontend\_breakpoint
+
+Identify the responsive breakpoint that a viewport width falls into and generate the corresponding CSS `@media` query.
+
+<ParamField path="width" type="number" required>
+  Viewport width in pixels.
+</ParamField>
+
+<ParamField path="system" type="string">
+  Breakpoint system: `tailwind` | `bootstrap` | `custom`. Defaults to `tailwind`.
+</ParamField>
+
+<ParamField path="custom_breakpoints" type="object">
+  Map of `{ name: minWidthPx }` pairs. Required when `system` is `custom`.
+
+  Example: `{ "mobile": 0, "tablet": 600, "desktop": 1024 }`
+</ParamField>
+
+<ParamField path="generate_query" type="boolean">
+  Include a generated `@media` query string in the response. Defaults to `true`.
+</ParamField>
+
+**Built-in breakpoint tables**
+
+**Tailwind v4**
+
+| Name | Min width |
+|------|-----------|
+| `xs` | 0 px |
+| `sm` | 640 px |
+| `md` | 768 px |
+| `lg` | 1024 px |
+| `xl` | 1280 px |
+| `2xl` | 1536 px |
+
+**Bootstrap 5**
+
+| Name | Min width |
+|------|-----------|
+| `xs` | 0 px |
+| `sm` | 576 px |
+| `md` | 768 px |
+| `lg` | 992 px |
+| `xl` | 1200 px |
+| `xxl` | 1400 px |
+
+**Example call — Tailwind at 900 px**
+
+```json
+{
+  "width": 900,
+  "system": "tailwind"
+}
+```
+
+**Example response**
+
+```json
+{
+  "breakpoint": "md",
+  "min_width": 768,
+  "max_width": 1023,
+  "media_query": "@media (min-width: 768px) { ... }"
+}
+```
+
+**Example call — custom breakpoints**
+
+```json
+{
+  "width": 820,
+  "system": "custom",
+  "custom_breakpoints": { "mobile": 0, "tablet": 600, "desktop": 1024 }
+}
+```
+
+**Example response**
+
+```json
+{
+  "breakpoint": "tablet",
+  "min_width": 600,
+  "max_width": 1023,
+  "media_query": "@media (min-width: 600px) { ... }"
+}
+```
+
+<Note>
+  `max_width` is `null` for the largest breakpoint in a set. The smallest breakpoint generates a `max-width` query instead of `min-width`.
+</Note>
+
+---
+
+## frontend\_regex
+
+Test, extract matches from, or replace in a string using a regular expression. Uses Go's RE2-compatible `regexp` package.
+
+<Warning>
+  RE2 syntax does not support lookaheads, lookbehinds, or backreferences. See the [RE2 syntax reference](https://github.com/google/re2/wiki/Syntax) for supported constructs.
+</Warning>
+
+<ParamField path="pattern" type="string" required>
+  Regular expression pattern without delimiters (e.g. `\d+`, `(\w+)@(\w+\.\w+)`).
+</ParamField>
+
+<ParamField path="input" type="string" required>
+  Input string to test the pattern against.
+</ParamField>
+
+<ParamField path="flags" type="string">
+  Combination of: `i` (case-insensitive), `m` (multiline), `g` (global / all matches). Example: `"ig"`.
+</ParamField>
+
+<ParamField path="operation" type="string">
+  `test` — return whether the pattern matches and how many times.
+  `match` — return all matches with capture groups and string positions.
+  `replace` — replace matches with `replacement`.
+
+  Defaults to `test`.
+</ParamField>
+
+<ParamField path="replacement" type="string">
+  Replacement string for the `replace` operation. Supports `$1`, `$2`, … group references.
+</ParamField>
+
+**Example call — test for a digit pattern**
+
+```json
+{
+  "pattern": "\\d+",
+  "input": "order #12345 placed",
+  "operation": "test"
+}
+```
+
+**Example response**
+
+```json
+{
+  "matches": true,
+  "count": 1
+}
+```
+
+**Example call — extract email parts**
+
+```json
+{
+  "pattern": "(\\w+)@(\\w+\\.\\w+)",
+  "input": "Contact us at support@example.com for help",
+  "operation": "match"
+}
+```
+
+**Example response**
+
+```json
+{
+  "matches": [
+    {
+      "full": "support@example.com",
+      "groups": ["support", "example.com"],
+      "index": 14
+    }
+  ]
+}
+```
+
+**Example call — replace all version numbers**
+
+```json
+{
+  "pattern": "\\d+\\.\\d+\\.\\d+",
+  "input": "Upgrading from v1.2.3 to v2.0.0",
+  "operation": "replace",
+  "replacement": "X.Y.Z",
+  "flags": "g"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "Upgrading from vX.Y.Z to vX.Y.Z",
+  "count": 2
+}
+```
+
+---
+
+## frontend\_locale\_format
+
+Format numbers, dates, times, currencies, and percentages according to IETF locale conventions.
+
+**Supported locales**
+
+| Locale | Region | Thousands sep | Decimal sep |
+|--------|--------|---------------|-------------|
+| `en-US` | US English | `,` | `.` |
+| `en-GB` | UK English | `,` | `.` |
+| `de-DE` | German | `.` | `,` |
+| `fr-FR` | French | `\u202F` (narrow nbsp) | `,` |
+| `es-ES` | Spanish | `.` | `,` |
+| `pt-BR` | Brazilian Portuguese | `.` | `,` |
+| `ja-JP` | Japanese | `,` | `.` |
+| `zh-CN` | Simplified Chinese | `,` | `.` |
+
+Unsupported locales fall back to `en-US` formatting.
+
+<ParamField path="value" type="string" required>
+  Value to format. Pass a numeric string for `number`, `currency`, and `percent` kinds; an ISO 8601 date/datetime string for `date`, `time`, and `datetime` kinds.
+</ParamField>
+
+<ParamField path="kind" type="string" required>
+  `number` | `currency` | `date` | `time` | `datetime` | `percent`.
+</ParamField>
+
+<ParamField path="locale" type="string">
+  IETF locale tag (e.g. `de-DE`, `ja-JP`). Defaults to `en-US`.
+</ParamField>
+
+<ParamField path="currency" type="string">
+  ISO 4217 currency code (e.g. `USD`, `EUR`, `GBP`). Required when `kind` is `currency`.
+</ParamField>
+
+<ParamField path="options" type="object">
+  Additional formatting options:
+  - `decimal_places` (integer) — number of decimal places to display.
+  - `format` (string) — custom Go time layout string to override the locale default.
+</ParamField>
+
+**Example call — number in German locale**
+
+```json
+{
+  "value": "1234567.89",
+  "kind": "number",
+  "locale": "de-DE"
+}
+```
+
+**Example response**
+
+```json
+{
+  "formatted": "1.234.567,89",
+  "locale": "de-DE",
+  "kind": "number"
+}
+```
+
+**Example call — currency**
+
+```json
+{
+  "value": "4299.99",
+  "kind": "currency",
+  "locale": "en-US",
+  "currency": "USD"
+}
+```
+
+**Example response**
+
+```json
+{
+  "formatted": "$4,299.99",
+  "locale": "en-US",
+  "kind": "currency"
+}
+```
+
+**Example call — date in German locale**
+
+```json
+{
+  "value": "2024-07-04",
+  "kind": "date",
+  "locale": "de-DE"
+}
+```
+
+**Example response**
+
+```json
+{
+  "formatted": "04.07.2024",
+  "locale": "de-DE",
+  "kind": "date"
+}
+```
+
+**Example call — percentage**
+
+```json
+{
+  "value": "0.8542",
+  "kind": "percent",
+  "locale": "en-US"
+}
+```
+
+**Example response**
+
+```json
+{
+  "formatted": "85.4%",
+  "locale": "en-US",
+  "kind": "percent"
+}
+```
+
+---
+
+## frontend\_icu\_format
+
+Evaluate an ICU message format string with variable bindings. Supports simple substitution, plural rules, and select constructs — useful for building i18n-ready UI strings.
+
+<ParamField path="template" type="string" required>
+  ICU message format template string.
+</ParamField>
+
+<ParamField path="values" type="object" required>
+  Variable bindings as a JSON object of key-value pairs. Numeric values must be numbers (not strings) for plural rules to work correctly.
+</ParamField>
+
+<ParamField path="locale" type="string">
+  Locale tag for plural rules (e.g. `en`, `de`, `ja`). Defaults to `en`.
+
+  Languages without plural distinction (`ja`, `zh`, `ko`, `vi`, `tr`, `id`) always use the `other` clause.
+</ParamField>
+
+**Supported ICU constructs**
+
+| Construct | Syntax |
+|-----------|--------|
+| Simple variable | `{varName}` |
+| Plural | `{var, plural, one{# item} other{# items}}` |
+| Select | `{var, select, key{text} other{fallback}}` |
+| Exact match | `{var, plural, =0{none} one{one} other{#}}` |
+
+`#` inside plural clauses is replaced with the numeric value.
+
+**Example call — simple substitution**
+
+```json
+{
+  "template": "Hello, {name}! You have {count} notifications.",
+  "values": { "name": "Alice", "count": 7 }
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "Hello, Alice! You have 7 notifications."
+}
+```
+
+**Example call — plural**
+
+```json
+{
+  "template": "You have {count, plural, one{# new message} other{# new messages}}.",
+  "values": { "count": 1 },
+  "locale": "en"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "You have 1 new message."
+}
+```
+
+**Example call — select**
+
+```json
+{
+  "template": "{gender, select, male{He submitted} female{She submitted} other{They submitted}} the form.",
+  "values": { "gender": "female" }
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "She submitted the form."
+}
+```
+
+**Example call — combined plural and select**
+
+```json
+{
+  "template": "{gender, select, male{He} female{She} other{They}} {count, plural, one{sent # reply} other{sent # replies}}.",
+  "values": { "gender": "male", "count": 3 }
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "He sent 3 replies."
+}
+```

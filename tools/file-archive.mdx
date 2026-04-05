@@ -1,0 +1,404 @@
+---
+title: "File & archive tools"
+description: "File integrity, archiving, diffing, line-ending normalization, and hex inspection utilities."
+---
+
+<Note>
+  All tools in this group are stateless and work fully offline without an API key.
+</Note>
+
+## file\_checksum
+
+Compute the MD5, SHA-256, or SHA-512 checksum of a file by streaming it through the selected hash algorithm. The file is never fully loaded into memory, making this safe for arbitrarily large files.
+
+<ParamField path="path" type="string" required>
+  Absolute or relative path to the target file.
+</ParamField>
+
+<ParamField path="algorithm" type="string">
+  Hash algorithm: `md5` | `sha256` | `sha512`. Defaults to `sha256`.
+
+  Use `md5` only for compatibility checks — not for security purposes.
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "path": "/home/user/downloads/release-v2.3.tar.gz",
+  "algorithm": "sha256"
+}
+```
+
+**Example response**
+
+```json
+{
+  "checksum": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "algorithm": "sha256",
+  "path": "/home/user/downloads/release-v2.3.tar.gz",
+  "size_bytes": 204800
+}
+```
+
+<ResponseField name="checksum" type="string">
+  Lowercase hex-encoded hash digest.
+</ResponseField>
+
+<ResponseField name="algorithm" type="string">
+  The algorithm that was used.
+</ResponseField>
+
+<ResponseField name="size_bytes" type="number">
+  File size in bytes.
+</ResponseField>
+
+---
+
+## file\_archive
+
+Create or extract `zip` or `tar.gz` archives. Supports glob-based exclusion patterns.
+
+<Warning>
+  Path traversal (zip-slip) attacks are blocked — every extracted entry is verified to stay inside the destination directory before it is written.
+</Warning>
+
+<ParamField path="operation" type="string" required>
+  `create` — pack a file or directory into an archive.
+  `extract` — unpack an existing archive.
+</ParamField>
+
+<ParamField path="format" type="string">
+  Archive format: `zip` | `tar.gz`. Defaults to `zip`.
+</ParamField>
+
+<ParamField path="source" type="string">
+  Source file or directory to archive. Required for `create`.
+</ParamField>
+
+<ParamField path="output" type="string">
+  Output archive path. Required for `create`. Parent directories are created automatically.
+</ParamField>
+
+<ParamField path="archive" type="string">
+  Path to the archive file to extract. Required for `extract`.
+</ParamField>
+
+<ParamField path="dest" type="string">
+  Destination directory for extracted files. Required for `extract`. Created automatically if it does not exist.
+</ParamField>
+
+<ParamField path="exclude" type="string[]">
+  List of glob patterns for files to exclude (e.g. `["*.log", "*.tmp", "node_modules/"]`). Matched against both the file's base name and its path relative to the archive root.
+</ParamField>
+
+**Example call — create a zip archive**
+
+```json
+{
+  "operation": "create",
+  "format": "zip",
+  "source": "./dist",
+  "output": "./release/dist-v1.0.zip",
+  "exclude": ["*.log", "*.tmp", ".DS_Store"]
+}
+```
+
+**Example response**
+
+```json
+{
+  "archive": "./release/dist-v1.0.zip",
+  "files_added": 23,
+  "size_bytes": 87654
+}
+```
+
+**Example call — extract a tar.gz archive**
+
+```json
+{
+  "operation": "extract",
+  "format": "tar.gz",
+  "archive": "./backups/2026-03-01.tar.gz",
+  "dest": "./restored/2026-03-01"
+}
+```
+
+**Example response**
+
+```json
+{
+  "dest": "./restored/2026-03-01",
+  "files_extracted": 73
+}
+```
+
+---
+
+## file\_diff
+
+Generate a unified diff between two files or two text strings. Uses an LCS-based Myers-style algorithm with no external dependencies.
+
+Output follows the standard unified diff format:
+
+```
+--- a.txt
++++ b.txt
+@@ -1,4 +1,5 @@
+ context line
+-removed line
++added line
+ context line
+```
+
+<ParamField path="a" type="string" required>
+  First file path (`file` mode) or raw text content (`text` mode).
+</ParamField>
+
+<ParamField path="b" type="string" required>
+  Second file path (`file` mode) or raw text content (`text` mode).
+</ParamField>
+
+<ParamField path="mode" type="string">
+  `file` — read `a` and `b` as filesystem paths.
+  `text` — treat `a` and `b` as inline string content.
+
+  Defaults to `file`.
+</ParamField>
+
+<ParamField path="context_lines" type="number">
+  Number of unchanged context lines to include around each changed hunk. Defaults to `3`.
+</ParamField>
+
+**Example call — compare two files**
+
+```json
+{
+  "a": "./schema-v1.sql",
+  "b": "./schema-v2.sql",
+  "mode": "file",
+  "context_lines": 2
+}
+```
+
+**Example response**
+
+```json
+{
+  "diff": "--- ./schema-v1.sql\n+++ ./schema-v2.sql\n@@ -8,5 +8,6 @@\n   id SERIAL PRIMARY KEY,\n - name VARCHAR(100),\n + name VARCHAR(255),\n + email TEXT,\n   created_at TIMESTAMPTZ\n",
+  "additions": 2,
+  "deletions": 1
+}
+```
+
+**Example call — compare inline text**
+
+```json
+{
+  "a": "Hello world\nGoodbye",
+  "b": "Hello world\nSee you later",
+  "mode": "text"
+}
+```
+
+**Example response**
+
+```json
+{
+  "diff": "--- a\n+++ b\n@@ -1,2 +1,2 @@\n Hello world\n-Goodbye\n+See you later\n",
+  "additions": 1,
+  "deletions": 1
+}
+```
+
+<Tip>
+  When the two inputs are identical, `diff` is an empty string and both `additions` and `deletions` are `0`.
+</Tip>
+
+---
+
+## file\_line\_endings
+
+Detect, normalize, or convert line endings (`LF` / `CRLF`) in a file or text string.
+
+- **detect** — counts LF-only and CRLF occurrences and reports the dominant style (`lf`, `crlf`, or `mixed`).
+- **normalize** / **convert** — rewrites all line endings to the specified `target`.
+  - In `text` mode the normalized text is returned inline.
+  - In `file` mode the result is written to `output` (or the input file is overwritten in-place if `output` is omitted).
+
+<ParamField path="input" type="string" required>
+  File path (`file` mode) or raw text string (`text` mode).
+</ParamField>
+
+<ParamField path="mode" type="string">
+  `file` | `text`. Defaults to `file`.
+</ParamField>
+
+<ParamField path="operation" type="string">
+  `detect` | `normalize` | `convert`. Defaults to `detect`.
+
+  `normalize` and `convert` are equivalent — both convert all endings to `target`.
+</ParamField>
+
+<ParamField path="target" type="string">
+  Target line ending for normalize/convert: `lf` | `crlf`. Defaults to `lf`.
+</ParamField>
+
+<ParamField path="output" type="string">
+  Output file path for `file` mode normalize/convert. Omit to overwrite the input file in place.
+</ParamField>
+
+**Example call — detect line endings**
+
+```json
+{
+  "input": "./legacy/windows-export.csv",
+  "mode": "file",
+  "operation": "detect"
+}
+```
+
+**Example response**
+
+```json
+{
+  "line_ending": "crlf",
+  "lf_count": 0,
+  "crlf_count": 87
+}
+```
+
+**Example call — normalize CRLF to LF in-place**
+
+```json
+{
+  "input": "./legacy/windows-export.csv",
+  "mode": "file",
+  "operation": "normalize",
+  "target": "lf"
+}
+```
+
+**Example response**
+
+```json
+{
+  "output": "./legacy/windows-export.csv",
+  "lines_converted": 87
+}
+```
+
+**Example call — convert inline text to CRLF**
+
+```json
+{
+  "input": "line one\nline two\nline three",
+  "mode": "text",
+  "operation": "convert",
+  "target": "crlf"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "line one\r\nline two\r\nline three"
+}
+```
+
+---
+
+## file\_hex\_view
+
+Display binary file content or base64-encoded bytes as a formatted hex + ASCII dump table.
+
+Output format:
+
+```
+00000000  7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00  |.ELF............|
+00000010  02 00 3e 00 01 00 00 00  80 10 40 00 00 00 00 00  |..>.......@.....|
+```
+
+<ParamField path="input" type="string" required>
+  File path (`file` mode) or base64-encoded byte string (`base64` mode).
+</ParamField>
+
+<ParamField path="mode" type="string">
+  `file` | `base64`. Defaults to `file`.
+
+  In `base64` mode, both standard and URL-safe base64 encodings are accepted.
+</ParamField>
+
+<ParamField path="offset" type="number">
+  Byte offset to start reading from. Defaults to `0`.
+</ParamField>
+
+<ParamField path="length" type="number">
+  Number of bytes to display. Defaults to `256`. Clamped to the remaining bytes if offset + length exceeds the file size.
+</ParamField>
+
+<ParamField path="width" type="number">
+  Number of bytes per row in the dump. Defaults to `16`.
+</ParamField>
+
+**Example call — inspect first 64 bytes of a binary file**
+
+```json
+{
+  "input": "./firmware.bin",
+  "mode": "file",
+  "offset": 0,
+  "length": 64,
+  "width": 16
+}
+```
+
+**Example response**
+
+```json
+{
+  "hex_view": "00000000  7f 45 4c 46 02 01 01 00  00 00 00 00 00 00 00 00  |.ELF............|\n00000010  02 00 3e 00 01 00 00 00  80 10 40 00 00 00 00 00  |..>.......@.....|\n",
+  "offset": 0,
+  "bytes_shown": 64,
+  "total_bytes": 131072
+}
+```
+
+**Example call — inspect base64-encoded data**
+
+```json
+{
+  "input": "SGVsbG8gV29ybGQh",
+  "mode": "base64",
+  "width": 8
+}
+```
+
+**Example response**
+
+```json
+{
+  "hex_view": "00000000  48 65 6c 6c  6f 20 57 6f  |Hello Wo|\n00000008  72 6c 64 21              |rld!    |\n",
+  "offset": 0,
+  "bytes_shown": 12,
+  "total_bytes": 12
+}
+```
+
+<ResponseField name="hex_view" type="string">
+  Formatted hex + ASCII dump as a multi-line string.
+</ResponseField>
+
+<ResponseField name="offset" type="number">
+  The byte position where the view starts.
+</ResponseField>
+
+<ResponseField name="bytes_shown" type="number">
+  Number of bytes actually displayed (may be less than `length` near end of file).
+</ResponseField>
+
+<ResponseField name="total_bytes" type="number">
+  Total size of the source: file size in bytes, or decoded base64 length.
+</ResponseField>

@@ -1,0 +1,94 @@
+---
+title: 'CLI/TUI'
+description: 'Launch the interactive Bubble Tea terminal UI to access all 70+ DevForge tools from your terminal.'
+keywords: ['cli', 'tui', 'terminal', 'bubble tea', 'devforge', 'interactive']
+---
+
+The `devforge` binary launches an interactive [Bubble Tea](https://github.com/charmbracelet/bubbletea) terminal UI that gives you access to the full DevForge tool surface from the command line — no AI client required.
+
+## Launch the TUI
+
+```bash
+devforge
+```
+
+That is the only command. The TUI starts immediately and presents the main menu.
+
+<Note>
+  The TUI reads the same config file as the MCP server (`~/.config/devforge/config.json`). Any Gemini API key you configure in one is available in the other.
+</Note>
+
+## Main screens
+
+The TUI is organized into the following screens:
+
+<CardGroup cols={2}>
+  <Card title="Analyze layout" icon="table-columns">
+    Audit HTML or JSX markup for layout, accessibility, spacing, and typography issues.
+  </Card>
+  <Card title="Generate layout" icon="wand-magic-sparkles">
+    Scaffold a layout from a plain-language description and stack metadata.
+  </Card>
+  <Card title="Explore color palettes" icon="palette">
+    Generate named color palette proposals for a given use case and brand mood.
+  </Card>
+  <Card title="Generate / optimize images" icon="image">
+    Optimize, resize, convert, crop, rotate, watermark, and process images using the dpf engine.
+  </Card>
+  <Card title="Generate favicon" icon="star">
+    Generate favicon variants (ico, png, svg) from a source image.
+  </Card>
+  <Card title="Video / audio processing" icon="film">
+    Transcode, resize, trim, and normalize video and audio files via FFmpeg.
+  </Card>
+  <Card title="UI to Markdown" icon="file-lines">
+    Analyze a UI screenshot and generate a Markdown design spec using Gemini vision.
+  </Card>
+  <Card title="Markdown to PDF" icon="file-pdf">
+    Export Markdown documents to PDF with theme and layout options.
+  </Card>
+  <Card title="Developer utility tools" icon="wrench">
+    Access all 48 stateless developer utility tools grouped by category.
+  </Card>
+  <Card title="Settings and MCP setup" icon="gear">
+    Configure your Gemini API key and review MCP connection instructions.
+  </Card>
+</CardGroup>
+
+## Tool categories in the TUI
+
+Every tool available via the MCP server is also reachable from the TUI. The 48 utility tools are grouped as follows:
+
+<CardGroup cols={2}>
+  <Card title="Text & encoding" icon="font">
+    Escape, slug, UUID, base64, URL encode, normalize, and transform strings.
+  </Card>
+  <Card title="Data format" icon="braces">
+    Parse, convert, validate, and diff JSON, YAML, CSV, and structured data.
+  </Card>
+  <Card title="Security & cryptography" icon="lock">
+    Hash, HMAC, JWT, password hashing, key generation, and secret redaction.
+  </Card>
+  <Card title="HTTP & networking" icon="globe">
+    Execute requests, convert curl commands, sign URLs, and parse URLs.
+  </Card>
+  <Card title="Date & time" icon="clock">
+    Convert timestamps, calculate durations, parse cron expressions, and generate date ranges.
+  </Card>
+  <Card title="File & archive" icon="folder">
+    Checksums, zip/tar.gz archives, unified diffs, line ending normalization, and hex dumps.
+  </Card>
+  <Card title="Frontend utilities" icon="desktop">
+    Color conversion, CSS units, breakpoints, regex testing, and locale formatting.
+  </Card>
+  <Card title="Backend utilities" icon="server">
+    SQL formatting, DSN builder, log parsing, .env validation, and MQ payloads.
+  </Card>
+  <Card title="Code utilities" icon="code">
+    Format Go/TS/JSON/HTML/CSS, measure code metrics, and render templates.
+  </Card>
+</CardGroup>
+
+<Note>
+  The TUI and the MCP server expose the same tool surface — all 70+ tools are available in both interfaces. Any tool you can call from an AI agent you can also run interactively from the terminal.
+</Note>

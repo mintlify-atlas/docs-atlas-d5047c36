@@ -1,0 +1,323 @@
+---
+title: "Code tools"
+description: "Source code formatting, quality metrics, and template rendering."
+---
+
+<Note>
+  All tools in this group are stateless and work fully offline without an API key.
+</Note>
+
+## code\_format
+
+Format source code for a given language. Uses the language's canonical formatter where available.
+
+**Supported languages**
+
+| Language | Formatter | Notes |
+|----------|-----------|-------|
+| `go` | `go/format.Source()` | Always uses tabs; `indent_size` and `use_tabs` are ignored |
+| `json` | Standard re-indent | Configurable spaces or tabs |
+| `typescript` (also `javascript`) | Indent normalization | Detects current indent unit and re-indents to target |
+| `html` | Heuristic tag indentation | One tag per line; children indented relative to parent |
+| `css` | Rule block normalization | One property per line; consistent indentation |
+
+<ParamField path="code" type="string" required>
+  Source code to format.
+</ParamField>
+
+<ParamField path="language" type="string" required>
+  Language identifier: `go` | `typescript` | `json` | `html` | `css`.
+
+  `javascript` and `js` are accepted as aliases for `typescript`.
+</ParamField>
+
+<ParamField path="indent_size" type="number">
+  Number of spaces per indent level. Defaults to `2`. Ignored when `use_tabs` is `true` or when formatting Go.
+</ParamField>
+
+<ParamField path="use_tabs" type="boolean">
+  Use tab characters instead of spaces. Defaults to `false`. Go always uses tabs regardless of this setting.
+</ParamField>
+
+**Example call — format Go code**
+
+```json
+{
+  "code": "package main\nimport \"fmt\"\nfunc main(){fmt.Println(\"hello world\")}",
+  "language": "go"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "package main\n\nimport \"fmt\"\n\nfunc main() {\n\tfmt.Println(\"hello world\")\n}\n",
+  "language": "go",
+  "changed": true
+}
+```
+
+**Example call — format JSON with 4-space indent**
+
+```json
+{
+  "code": "{\"name\":\"devforge\",\"version\":\"1.0.0\",\"scripts\":{\"build\":\"go build ./...\",\"test\":\"go test ./...\"}}",
+  "language": "json",
+  "indent_size": 4
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "{\n    \"name\": \"devforge\",\n    \"version\": \"1.0.0\",\n    \"scripts\": {\n        \"build\": \"go build ./...\",\n        \"test\": \"go test ./...\"\n    }\n}",
+  "language": "json",
+  "changed": true
+}
+```
+
+**Example call — re-indent TypeScript from 4 spaces to 2**
+
+```json
+{
+  "code": "function greet(name: string): string {\n    const greeting = `Hello, ${name}!`;\n    return greeting;\n}",
+  "language": "typescript",
+  "indent_size": 2
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "function greet(name: string): string {\n  const greeting = `Hello, ${name}!`;\n  return greeting;\n}",
+  "language": "typescript",
+  "changed": true
+}
+```
+
+<ResponseField name="result" type="string">
+  Formatted source code.
+</ResponseField>
+
+<ResponseField name="language" type="string">
+  Normalized language identifier used internally (e.g. `typescript` is returned even if `javascript` was passed).
+</ResponseField>
+
+<ResponseField name="changed" type="boolean">
+  `true` if the formatted output differs from the input; `false` if the code was already correctly formatted.
+</ResponseField>
+
+---
+
+## code\_metrics
+
+Compute code quality metrics for a source file: lines of code, blank lines, comment lines, function count, and a cyclomatic complexity estimate.
+
+For Go, metrics use `go/ast` when the source is valid Go; other languages use regex heuristics.
+
+<ParamField path="code" type="string" required>
+  Source code to analyze.
+</ParamField>
+
+<ParamField path="language" type="string" required>
+  Language: `go` | `typescript` | `python` | `generic`.
+
+  `javascript` and `js` are accepted as aliases for `typescript`.
+</ParamField>
+
+**Metrics definitions**
+
+| Field | Description |
+|-------|-------------|
+| `loc` | Total lines (blank + comment + source) |
+| `sloc` | Source lines only (non-blank, non-comment) |
+| `blank_lines` | Lines that are empty or contain only whitespace |
+| `comment_lines` | Lines that are comments (`//`, `#`, `/* */`, docstrings) |
+| `functions` | Number of function/method declarations |
+| `complexity_estimate` | Count of branching points (see table below) |
+
+**Invariant:** `loc = sloc + blank_lines + comment_lines`
+
+**Complexity branching points counted per language**
+
+| Token | Go | TypeScript | Python |
+|-------|----|-----------|--------|
+| `if` / `elif` | ✓ | ✓ | ✓ |
+| `else if` | — | ✓ | — |
+| `for` / `while` | ✓ | ✓ | ✓ |
+| `case` (switch) | ✓ | ✓ | ✓ |
+| `select` | ✓ | — | — |
+| `&&` / `\|\|` | ✓ | ✓ | — |
+| `and` / `or` | — | — | ✓ |
+| `?` (ternary) | — | ✓ | — |
+
+**Example call — Go function**
+
+```json
+{
+  "code": "package main\n\n// add returns the sum of a and b.\nfunc add(a, b int) int {\n\tif a > 0 {\n\t\treturn a + b\n\t}\n\treturn b\n}",
+  "language": "go"
+}
+```
+
+**Example response**
+
+```json
+{
+  "loc": 9,
+  "sloc": 7,
+  "blank_lines": 1,
+  "comment_lines": 1,
+  "functions": 1,
+  "complexity_estimate": 1,
+  "language": "go"
+}
+```
+
+**Example call — TypeScript module**
+
+```json
+{
+  "code": "// User utilities\nexport function getFullName(first: string, last: string): string {\n  return `${first} ${last}`;\n}\n\nexport function isAdult(age: number): boolean {\n  if (age >= 18) {\n    return true;\n  }\n  return false;\n}",
+  "language": "typescript"
+}
+```
+
+**Example response**
+
+```json
+{
+  "loc": 11,
+  "sloc": 9,
+  "blank_lines": 1,
+  "comment_lines": 1,
+  "functions": 2,
+  "complexity_estimate": 1,
+  "language": "typescript"
+}
+```
+
+---
+
+## code\_template
+
+Render a template string with JSON context bindings. Supports Go's `text/template` engine and a built-in minimal Mustache interpreter.
+
+<ParamField path="template" type="string" required>
+  Template string to render.
+</ParamField>
+
+<ParamField path="context" type="string" required>
+  JSON object with variable bindings. Must be a valid JSON string (not an inline object).
+</ParamField>
+
+<ParamField path="engine" type="string">
+  Template engine: `go` | `mustache`. Defaults to `go`.
+</ParamField>
+
+**Go engine (`text/template`)**
+
+Uses Go's standard `text/template` package. Supported syntax:
+
+| Syntax | Description |
+|--------|-------------|
+| `{{.variable}}` | Variable access |
+| `{{range .items}}...{{end}}` | Iteration over a slice |
+| `{{if .condition}}...{{end}}` | Conditional |
+| `{{with .value}}...{{end}}` | Scope change |
+| `{{len .items}}`, `{{printf ...}}` | Built-in functions |
+
+<Warning>
+  The Go engine uses `text/template`, not `html/template`. HTML output is not automatically escaped — you control escaping.
+</Warning>
+
+**Mustache engine**
+
+Supported Mustache tags:
+
+| Tag | Description |
+|-----|-------------|
+| `{{variable}}` | Variable interpolation |
+| `{{{variable}}}` | Unescaped variable (same behavior in this implementation) |
+| `{{#section}}...{{/section}}` | Truthy check; iterates if the value is an array |
+| `{{^inverted}}...{{/inverted}}` | Renders when the value is falsy or an empty array |
+| `{{! comment }}` | Comment — stripped from output |
+
+Dot notation is supported: `{{user.name}}`.
+
+When iterating over an array of objects, each item's keys are merged into the context for that iteration.
+
+**Example call — Go template with range**
+
+```json
+{
+  "template": "Deploying to:\n{{range .environments}}- {{.}}\n{{end}}",
+  "context": "{\"environments\": [\"staging\", \"canary\", \"production\"]}",
+  "engine": "go"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "Deploying to:\n- staging\n- canary\n- production\n"
+}
+```
+
+**Example call — Go template with conditional**
+
+```json
+{
+  "template": "{{if .debug}}DEBUG MODE ENABLED\n{{end}}Server: {{.host}}:{{.port}}",
+  "context": "{\"debug\": true, \"host\": \"localhost\", \"port\": 8080}",
+  "engine": "go"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "DEBUG MODE ENABLED\nServer: localhost:8080"
+}
+```
+
+**Example call — Mustache with section and iteration**
+
+```json
+{
+  "template": "Team members:\n{{#members}}  - {{name}} ({{role}})\n{{/members}}\n{{^members}}No members found.{{/members}}",
+  "context": "{\"members\": [{\"name\": \"Alice\", \"role\": \"backend\"}, {\"name\": \"Bob\", \"role\": \"frontend\"}]}",
+  "engine": "mustache"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "Team members:\n  - Alice (backend)\n  - Bob (frontend)\n"
+}
+```
+
+**Example call — Mustache inverted section**
+
+```json
+{
+  "template": "{{#items}}Found {{count}} items.{{/items}}{{^items}}No items found.{{/items}}",
+  "context": "{\"items\": []}",
+  "engine": "mustache"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "No items found."
+}
+```

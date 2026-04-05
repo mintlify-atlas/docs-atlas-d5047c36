@@ -1,0 +1,547 @@
+---
+title: "Backend tools"
+description: "SQL formatting, connection string management, log parsing, environment inspection, and message queue payload building."
+---
+
+<Note>
+  All tools in this group are stateless and work fully offline without an API key.
+</Note>
+
+## backend\_sql\_format
+
+Format and lint a SQL statement with configurable indentation, keyword casing, and dialect-aware warnings. No database connection is required.
+
+<ParamField path="sql" type="string" required>
+  SQL statement to format.
+</ParamField>
+
+<ParamField path="dialect" type="string">
+  SQL dialect for dialect-aware behavior: `postgresql` | `mysql` | `sqlite` | `generic`. Defaults to `generic`.
+</ParamField>
+
+<ParamField path="indent" type="string">
+  Indentation string used for each level. Defaults to two spaces (`"  "`).
+</ParamField>
+
+<ParamField path="uppercase_keywords" type="boolean">
+  Convert SQL keywords to uppercase. Defaults to `true`.
+</ParamField>
+
+**Lint warnings**
+
+The tool automatically produces warnings for common SQL mistakes:
+
+| Condition | Warning message |
+|-----------|----------------|
+| `SELECT *` | `SELECT * detected: consider selecting specific columns` |
+| `UPDATE` without `WHERE` | `UPDATE without WHERE clause: all rows will be affected` |
+| `DELETE` without `WHERE` | `DELETE without WHERE clause: all rows will be deleted` |
+| Comma-joined tables in `FROM` | `Potential cartesian join detected: use explicit JOIN syntax` |
+
+**Example call**
+
+```sql
+select u.id, u.name, o.total from users u, orders o where u.id = o.user_id and o.total > 100
+```
+
+```json
+{
+  "sql": "select u.id, u.name, o.total from users u, orders o where u.id = o.user_id and o.total > 100",
+  "dialect": "postgresql",
+  "uppercase_keywords": true
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "SELECT u.id, u.name, o.total\n  FROM users u, orders o\n  WHERE u.id = o.user_id AND o.total > 100",
+  "warnings": [
+    "Potential cartesian join detected: use explicit JOIN syntax instead of comma-separated tables"
+  ]
+}
+```
+
+**Example call — SELECT \***
+
+```json
+{
+  "sql": "select * from users where id = 1",
+  "dialect": "postgresql"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "SELECT *\n  FROM users\n  WHERE id = 1",
+  "warnings": [
+    "SELECT * detected: consider selecting specific columns"
+  ]
+}
+```
+
+---
+
+## backend\_conn\_string
+
+Build or parse a database connection string (DSN) for PostgreSQL, MySQL, MongoDB, or Redis.
+
+<ParamField path="operation" type="string" required>
+  `build` — assemble a DSN from individual components.
+  `parse` — decompose an existing DSN into its components.
+</ParamField>
+
+<ParamField path="db_type" type="string" required>
+  Database type: `postgresql` | `mysql` | `mongodb` | `redis`.
+</ParamField>
+
+<ParamField path="connection_string" type="string">
+  Existing connection string to parse. Required when `operation` is `parse`.
+</ParamField>
+
+<ParamField path="host" type="string">
+  Database host. Defaults to `localhost`.
+</ParamField>
+
+<ParamField path="port" type="number">
+  Database port. Defaults to the standard port for the selected `db_type`.
+</ParamField>
+
+<ParamField path="database" type="string">
+  Database name (or Redis DB index for Redis).
+</ParamField>
+
+<ParamField path="username" type="string">
+  Username for authentication.
+</ParamField>
+
+<ParamField path="password" type="string">
+  Password for authentication. URL-encoded automatically where required.
+</ParamField>
+
+<ParamField path="options" type="object">
+  Extra key/value connection parameters appended as query string (e.g. `{ "sslmode": "require" }`).
+</ParamField>
+
+**Default ports**
+
+| DB type | Default port |
+|---------|-------------|
+| PostgreSQL | 5432 |
+| MySQL | 3306 |
+| MongoDB | 27017 |
+| Redis | 6379 |
+
+**DSN formats**
+
+| DB type | Format |
+|---------|--------|
+| PostgreSQL | `postgresql://user:pass@host:port/dbname?key=val` |
+| MySQL | `user:pass@tcp(host:port)/dbname?key=val` |
+| MongoDB | `mongodb://user:pass@host:port/dbname` |
+| Redis | `redis://:password@host:port/db` |
+
+**Example call — build a PostgreSQL DSN**
+
+```json
+{
+  "operation": "build",
+  "db_type": "postgresql",
+  "host": "db.prod.example.com",
+  "port": 5432,
+  "database": "app_production",
+  "username": "app_user",
+  "password": "s3cr3t",
+  "options": { "sslmode": "require", "connect_timeout": "10" }
+}
+```
+
+**Example response**
+
+```json
+{
+  "connection_string": "postgresql://app_user:s3cr3t@db.prod.example.com:5432/app_production?connect_timeout=10&sslmode=require"
+}
+```
+
+**Example call — parse a MySQL DSN**
+
+```json
+{
+  "operation": "parse",
+  "db_type": "mysql",
+  "connection_string": "root:password@tcp(127.0.0.1:3306)/mydb?parseTime=true"
+}
+```
+
+**Example response**
+
+```json
+{
+  "host": "127.0.0.1",
+  "port": 3306,
+  "database": "mydb",
+  "username": "root",
+  "options": { "parseTime": "true" }
+}
+```
+
+---
+
+## backend\_log\_parse
+
+Parse multiline log content in JSON, NDJSON, Apache Combined, or Nginx error format. Filter entries by field values and optional time range.
+
+<ParamField path="log" type="string" required>
+  Multiline log content as a string.
+</ParamField>
+
+<ParamField path="format" type="string">
+  Log format: `json` | `ndjson` | `apache` | `nginx` | `auto`. Defaults to `auto`.
+
+  **Auto-detection rules** (applied to the first non-empty line):
+  - Starts with `{` → `ndjson`
+  - Matches Apache Combined Log pattern → `apache`
+  - Matches Nginx error log pattern → `nginx`
+  - Otherwise → `text` (returns raw lines with `_raw` field)
+</ParamField>
+
+<ParamField path="filter" type="object">
+  Key/value pairs to filter entries by. An entry is included only if all filter keys are present and their values match.
+</ParamField>
+
+<ParamField path="start_time" type="string">
+  ISO 8601 start time for time-range filtering. Entries with a timestamp before this value are excluded.
+
+  Time field names recognized: `time`, `timestamp`, `@timestamp`, `time_local`, `datetime`, `date`.
+</ParamField>
+
+<ParamField path="end_time" type="string">
+  ISO 8601 end time for time-range filtering.
+</ParamField>
+
+<ParamField path="limit" type="number">
+  Maximum number of matching entries to return. Defaults to `100`.
+</ParamField>
+
+**Example call — parse NDJSON logs and filter by level**
+
+```json
+{
+  "log": "{\"level\":\"info\",\"msg\":\"server started\",\"time\":\"2024-01-15T10:00:00Z\"}\n{\"level\":\"error\",\"msg\":\"connection refused\",\"time\":\"2024-01-15T10:01:00Z\"}\n{\"level\":\"info\",\"msg\":\"retry succeeded\",\"time\":\"2024-01-15T10:01:30Z\"}",
+  "format": "ndjson",
+  "filter": { "level": "error" }
+}
+```
+
+**Example response**
+
+```json
+{
+  "entries": [
+    { "level": "error", "msg": "connection refused", "time": "2024-01-15T10:01:00Z" }
+  ],
+  "total": 3,
+  "matched": 1,
+  "format_detected": "ndjson"
+}
+```
+
+**Example call — Apache log with time range**
+
+```json
+{
+  "log": "192.168.1.1 - alice [15/Jan/2024:10:00:01 -0700] \"GET /api/users HTTP/1.1\" 200 512\n10.0.0.2 - - [15/Jan/2024:10:05:00 -0700] \"POST /api/orders HTTP/1.1\" 201 128",
+  "format": "apache",
+  "start_time": "2024-01-15T10:04:00Z"
+}
+```
+
+**Example response**
+
+```json
+{
+  "entries": [
+    {
+      "remote_addr": "10.0.0.2",
+      "user": "-",
+      "time_local": "15/Jan/2024:10:05:00 -0700",
+      "request": "POST /api/orders HTTP/1.1",
+      "status": "201",
+      "body_bytes": "128"
+    }
+  ],
+  "total": 2,
+  "matched": 1,
+  "format_detected": "apache"
+}
+```
+
+---
+
+## backend\_env\_inspect
+
+Validate a `.env` file against a schema, or generate a `.env.example` template from it.
+
+<ParamField path="env_content" type="string" required>
+  Full contents of the `.env` file as a string.
+</ParamField>
+
+<ParamField path="schema" type="string">
+  JSON object mapping environment variable names to schema specs. Each spec may include:
+  - `required` (boolean) — whether the key must be present
+  - `description` (string) — used in generated `.env.example` comments
+  - `pattern` (string) — regular expression the value must match
+
+  Example schema:
+  ```json
+  {
+    "DB_HOST":  { "required": true,  "description": "Database hostname" },
+    "DB_PORT":  { "required": true,  "description": "Port number", "pattern": "^[0-9]+$" },
+    "API_KEY":  { "required": true,  "description": "API authentication key" },
+    "LOG_LEVEL":{ "required": false, "description": "Logging verbosity" }
+  }
+  ```
+</ParamField>
+
+<ParamField path="operation" type="string">
+  `validate` — check the parsed keys against the schema.
+  `generate_example` — produce a `.env.example` with comments from the schema.
+
+  Defaults to `validate`.
+</ParamField>
+
+**.env parsing rules**
+
+- Lines starting with `#` are treated as comments and ignored.
+- Empty lines are skipped.
+- Values may be single-quoted (`'val'`) or double-quoted (`"val"`) — surrounding quotes are stripped.
+- Multiline values using a trailing `\` are supported.
+
+**Example call — validate a .env file**
+
+```json
+{
+  "env_content": "DB_HOST=localhost\nDB_PORT=abc\nLOG_LEVEL=debug",
+  "schema": "{\"DB_HOST\":{\"required\":true},\"DB_PORT\":{\"required\":true,\"pattern\":\"^[0-9]+$\"},\"API_KEY\":{\"required\":true}}",
+  "operation": "validate"
+}
+```
+
+**Example response**
+
+```json
+{
+  "valid": false,
+  "missing_required": ["API_KEY"],
+  "unknown_keys": ["LOG_LEVEL"],
+  "invalid_format": [
+    { "key": "DB_PORT", "error": "value does not match pattern \"^[0-9]+$\"" }
+  ]
+}
+```
+
+**Example call — generate a .env.example**
+
+```json
+{
+  "env_content": "DB_HOST=localhost\nDB_PORT=5432\nAPI_KEY=sk-prod-abc123",
+  "schema": "{\"DB_HOST\":{\"required\":true,\"description\":\"Database hostname\"},\"DB_PORT\":{\"required\":true,\"description\":\"Port number\",\"pattern\":\"^[0-9]+$\"},\"API_KEY\":{\"required\":true,\"description\":\"API authentication key\"}}",
+  "operation": "generate_example"
+}
+```
+
+**Example response**
+
+```json
+{
+  "example": "# Generated .env.example\n\n# Database hostname (required)\nDB_HOST=\n\n# Port number (required)\n# pattern: ^[0-9]+$\nDB_PORT=\n\n# API authentication key (required)\nAPI_KEY=\n\n"
+}
+```
+
+---
+
+## backend\_mq\_payload
+
+Build a message queue payload envelope for Kafka, RabbitMQ, or SQS. Pure serialization — no actual broker connection is made.
+
+<ParamField path="broker" type="string" required>
+  Message broker: `kafka` | `rabbitmq` | `sqs`.
+</ParamField>
+
+<ParamField path="operation" type="string">
+  `build` | `serialize` | `format`. Defaults to `build`. All three operations produce the same envelope structure.
+</ParamField>
+
+<ParamField path="topic" type="string">
+  Kafka topic name / RabbitMQ routing key / SQS queue name or URL.
+</ParamField>
+
+<ParamField path="payload" type="string">
+  JSON body of the message. If the value is valid JSON it is parsed and embedded as a structured object; otherwise it is embedded as a raw string.
+</ParamField>
+
+<ParamField path="headers" type="object">
+  Message headers as a flat string-to-string map (e.g. `{ "content-type": "application/json", "x-source": "api" }`).
+</ParamField>
+
+<ParamField path="options" type="object">
+  Broker-specific options. See the tables below for each broker.
+</ParamField>
+
+**Broker-specific options**
+
+<AccordionGroup>
+  <Accordion title="Kafka options">
+    | Option | Type | Default | Description |
+    |--------|------|---------|-------------|
+    | `key` | string | `""` | Message key used for partition assignment |
+    | `partition` | number | `0` | Target partition index |
+  </Accordion>
+
+  <Accordion title="RabbitMQ options">
+    | Option | Type | Default | Description |
+    |--------|------|---------|-------------|
+    | `exchange` | string | `""` | Exchange name to publish to |
+    | `content_type` | string | `"application/json"` | AMQP `content_type` property |
+    | `delivery_mode` | number | `2` | `1` = transient, `2` = persistent |
+    | `correlation_id` | string | — | Correlation identifier |
+    | `reply_to` | string | — | Reply-to queue name |
+    | `expiration` | string | — | Message TTL in milliseconds (as string) |
+    | `message_id` | string | — | Unique message identifier |
+    | `priority` | number | — | Message priority (0–9) |
+  </Accordion>
+
+  <Accordion title="SQS options">
+    | Option | Type | Default | Description |
+    |--------|------|---------|-------------|
+    | `queue_url` | string | `topic` value | Full SQS queue URL (overrides `topic`) |
+    | `message_group_id` | string | — | FIFO queue group ID |
+    | `message_deduplication_id` | string | — | FIFO deduplication token |
+  </Accordion>
+</AccordionGroup>
+
+<Tabs>
+  <Tab title="Kafka example">
+    **Call**
+
+    ```json
+    {
+      "broker": "kafka",
+      "topic": "user-events",
+      "payload": "{\"event\": \"user.created\", \"user_id\": 42}",
+      "headers": { "content-type": "application/json" },
+      "options": { "key": "user-42", "partition": 2 }
+    }
+    ```
+
+    **Response**
+
+    ```json
+    {
+      "envelope": {
+        "topic": "user-events",
+        "key": "user-42",
+        "value": { "event": "user.created", "user_id": 42 },
+        "headers": { "content-type": "application/json" },
+        "timestamp": "2024-01-15T10:00:00Z",
+        "partition": 2
+      },
+      "serialized": "{\"headers\":{\"content-type\":\"application/json\"},\"key\":\"user-42\",\"partition\":2,\"timestamp\":\"2024-01-15T10:00:00Z\",\"topic\":\"user-events\",\"value\":{\"event\":\"user.created\",\"user_id\":42}}",
+      "broker": "kafka"
+    }
+    ```
+  </Tab>
+
+  <Tab title="RabbitMQ example">
+    **Call**
+
+    ```json
+    {
+      "broker": "rabbitmq",
+      "topic": "user.created",
+      "payload": "{\"event\": \"user.created\", \"user_id\": 42}",
+      "headers": {},
+      "options": {
+        "exchange": "events",
+        "delivery_mode": 2,
+        "correlation_id": "req-abc-123",
+        "message_id": "msg-789"
+      }
+    }
+    ```
+
+    **Response**
+
+    ```json
+    {
+      "envelope": {
+        "exchange": "events",
+        "routing_key": "user.created",
+        "properties": {
+          "content_type": "application/json",
+          "correlation_id": "req-abc-123",
+          "delivery_mode": 2,
+          "headers": {},
+          "message_id": "msg-789",
+          "timestamp": "2024-01-15T10:00:00Z"
+        },
+        "body": { "event": "user.created", "user_id": 42 }
+      },
+      "serialized": "{...}",
+      "broker": "rabbitmq"
+    }
+    ```
+  </Tab>
+
+  <Tab title="SQS example">
+    **Call**
+
+    ```json
+    {
+      "broker": "sqs",
+      "topic": "my-fifo-queue.fifo",
+      "payload": "{\"event\": \"order.placed\", \"order_id\": 101}",
+      "headers": { "source": "checkout-service" },
+      "options": {
+        "queue_url": "https://sqs.us-east-1.amazonaws.com/123456789/my-fifo-queue.fifo",
+        "message_group_id": "orders",
+        "message_deduplication_id": "order-101-20240115"
+      }
+    }
+    ```
+
+    **Response**
+
+    ```json
+    {
+      "envelope": {
+        "QueueUrl": "https://sqs.us-east-1.amazonaws.com/123456789/my-fifo-queue.fifo",
+        "MessageBody": "{\"event\":\"order.placed\",\"order_id\":101}",
+        "MessageAttributes": {
+          "source": { "DataType": "String", "StringValue": "checkout-service" }
+        },
+        "MessageGroupId": "orders",
+        "MessageDeduplicationId": "order-101-20240115"
+      },
+      "serialized": "{...}",
+      "broker": "sqs"
+    }
+    ```
+  </Tab>
+</Tabs>
+
+<ResponseField name="envelope" type="object">
+  Structured broker envelope ready for use with the broker's client library.
+</ResponseField>
+
+<ResponseField name="serialized" type="string">
+  JSON-serialized form of `envelope` as a string — convenient for logging or direct wire transmission.
+</ResponseField>
+
+<ResponseField name="broker" type="string">
+  The broker name echoed back for confirmation.
+</ResponseField>

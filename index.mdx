@@ -1,97 +1,74 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "DevForge MCP"
+description: "70+ stateless developer tools for AI agents and terminals — media processing, design, cryptography, HTTP, data, and code utilities over MCP stdio."
 ---
 
-## Setting up
+DevForge MCP is a Go-powered MCP server and CLI/TUI that puts over 70 stateless developer tools directly into your AI agent or terminal. It covers image and video processing, layout analysis, design tokens, cryptography, HTTP utilities, data formatting, and code tools — all with zero database dependencies and no persistent state.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install via Homebrew or build from source. All three binaries in one command.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Quick Start" icon="bolt" href="/quickstart">
+    Get your first tool call working in under two minutes.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="MCP Setup" icon="plug" href="/mcp-setup">
+    Connect DevForge to Claude Desktop, Cursor, or any MCP-compatible client.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Tool Reference" icon="wrench" href="/tools/design-layout">
+    Explore all 70+ tools organized by category.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## What's included
 
-Everything you need to create world-class documentation.
+<CardGroup cols={3}>
+  <Card title="Design & Layout" icon="palette" href="/tools/design-layout">
+    Analyze HTML/JSX layouts, generate scaffolds, manage design tokens, and suggest color palettes.
+  </Card>
+  <Card title="Image Processing" icon="image" href="/tools/image-processing">
+    Resize, convert, crop, watermark, optimize, and generate favicons and srcsets.
+  </Card>
+  <Card title="Video & Audio" icon="film" href="/tools/video-audio">
+    Transcode, trim, resize, normalize, and extract thumbnails via FFmpeg.
+  </Card>
+  <Card title="Cryptography" icon="lock" href="/tools/cryptography">
+    Hash, HMAC, JWT generation/verification, password hashing, key generation, and secret masking.
+  </Card>
+  <Card title="HTTP & Networking" icon="globe" href="/tools/http-networking">
+    Execute requests, convert curl commands, sign URLs, replay webhooks, and parse URLs.
+  </Card>
+  <Card title="Data Formats" icon="database" href="/tools/data-formats">
+    Format JSON/YAML, convert CSV, run JSONPath queries, validate schemas, and diff data.
+  </Card>
+  <Card title="Backend Utilities" icon="server" href="/tools/backend">
+    Format SQL, build connection strings, parse logs, inspect `.env` files, and build MQ payloads.
+  </Card>
+  <Card title="Frontend Utilities" icon="monitor" href="/tools/frontend">
+    Convert colors, calculate CSS units, test breakpoints, validate regex, and format locales.
+  </Card>
+  <Card title="Code Tools" icon="code" href="/tools/code">
+    Format code in Go/TS/JSON/HTML/CSS, compute metrics, and render templates.
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## How it works
 
-## Need inspiration?
+<Steps>
+  <Step title="Install DevForge">
+    Install all three binaries (`devforge`, `devforge-mcp`, `dpf`) with a single Homebrew command or build from source.
+  </Step>
+  <Step title="Connect your AI client">
+    Add the `devforge-mcp` binary to your MCP client config. Works with Claude Desktop, Cursor, and any stdio-compatible MCP client.
+  </Step>
+  <Step title="Call tools from your agent">
+    Your AI agent can now call any of the 70+ tools by name. All tools return structured JSON — no hallucination, no ad-hoc code generation needed.
+  </Step>
+  <Step title="Use the CLI/TUI optionally">
+    Run `devforge` for an interactive terminal UI to access the same tool surface without an AI client.
+  </Step>
+</Steps>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<Note>
+  All non-AI tools work fully offline and require no API key. Only `generate_ui_image`, `ui2md`, and `suggest_color_palettes` require a Gemini API key, which you can configure at runtime.
+</Note>

@@ -1,0 +1,359 @@
+---
+title: 'Data format tools'
+description: 'Stateless tools for formatting, converting, querying, validating, and diffing structured data in JSON, YAML, and CSV formats.'
+keywords: ['json', 'yaml', 'csv', 'jsonpath', 'json schema', 'diff', 'data formats', 'convert']
+---
+
+<Note>All tools in this group are stateless and work fully offline without an API key.</Note>
+
+## data_json_format
+
+Pretty-print or re-indent a JSON string. Returns line and column information when the input contains a syntax error.
+
+<ParamField path="json" type="string" required>
+  Raw JSON string to format.
+</ParamField>
+
+<ParamField path="indent" type="string" default="  ">
+  Indent string applied to each level of nesting. Common values: `"  "` (two spaces), `"    "` (four spaces), `"\t"` (tab).
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "json": "{\"name\":\"alice\",\"age\":30,\"active\":true}",
+  "indent": "  "
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "{\n  \"name\": \"alice\",\n  \"age\": 30,\n  \"active\": true\n}"
+}
+```
+
+**Syntax error response**
+
+```json
+{
+  "error": "invalid character 'a' looking for beginning of value",
+  "line": 1,
+  "column": 3
+}
+```
+
+<Tip>Pass `"indent": ""` to minify a JSON string by removing all whitespace.</Tip>
+
+---
+
+## data_yaml_convert
+
+Convert data between JSON and YAML formats. Pass the same value for `from` and `to` to get the input back unchanged.
+
+<ParamField path="input" type="string" required>
+  Input string to convert.
+</ParamField>
+
+<ParamField path="from" type="string" required>
+  Source format. One of: `json`, `yaml`.
+</ParamField>
+
+<ParamField path="to" type="string" required>
+  Target format. One of: `json`, `yaml`.
+</ParamField>
+
+**Example call — JSON to YAML**
+
+```json
+{
+  "input": "{\"name\":\"alice\",\"age\":30,\"roles\":[\"admin\",\"user\"]}",
+  "from": "json",
+  "to": "yaml"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "age: 30\nname: alice\nroles:\n  - admin\n  - user"
+}
+```
+
+**Example call — YAML to JSON**
+
+```json
+{
+  "input": "name: alice\nage: 30\nroles:\n  - admin\n  - user\n",
+  "from": "yaml",
+  "to": "json"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "{\n  \"age\": 30,\n  \"name\": \"alice\",\n  \"roles\": [\n    \"admin\",\n    \"user\"\n  ]\n}"
+}
+```
+
+---
+
+## data_csv_convert
+
+Convert between CSV and JSON formats.
+
+- **CSV → JSON**: produces an array of objects. Keys come from the header row when `has_header` is `true`, or from zero-based numeric strings (`"0"`, `"1"`, …) otherwise.
+- **JSON → CSV**: takes an array of objects and outputs a CSV with a header row. Column order is sorted alphabetically by key.
+
+<ParamField path="input" type="string" required>
+  Input string to convert.
+</ParamField>
+
+<ParamField path="from" type="string" required>
+  Source format. One of: `csv`, `json`.
+</ParamField>
+
+<ParamField path="to" type="string" required>
+  Target format. One of: `csv`, `json`.
+</ParamField>
+
+<ParamField path="separator" type="string" default=",">
+  Single-character field separator. Use `"\t"` for TSV.
+</ParamField>
+
+<ParamField path="has_header" type="boolean" default="true">
+  Whether the first CSV row contains column names. Only applies to CSV → JSON.
+</ParamField>
+
+**Example call — CSV to JSON**
+
+```json
+{
+  "input": "name,age,city\nalice,30,New York\nbob,25,London",
+  "from": "csv",
+  "to": "json",
+  "has_header": true
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "[\n  {\n    \"age\": \"30\",\n    \"city\": \"New York\",\n    \"name\": \"alice\"\n  },\n  {\n    \"age\": \"25\",\n    \"city\": \"London\",\n    \"name\": \"bob\"\n  }\n]"
+}
+```
+
+**Example call — JSON to CSV**
+
+```json
+{
+  "input": "[{\"name\":\"alice\",\"age\":\"30\"},{\"name\":\"bob\",\"age\":\"25\"}]",
+  "from": "json",
+  "to": "csv"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "age,name\n30,alice\n25,bob"
+}
+```
+
+<Note>All CSV cell values are treated as strings. Numeric type inference is not performed.</Note>
+
+---
+
+## data_jsonpath
+
+Evaluate a JSONPath expression against a JSON document. Returns the matched value directly when there is a single match, or an array when multiple values match a wildcard.
+
+<ParamField path="json" type="string" required>
+  JSON document to query.
+</ParamField>
+
+<ParamField path="path" type="string" required>
+  JSONPath expression. Must start with `$`. Examples: `$.user.name`, `$.items[0]`, `$.items[*]`.
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "json": "{\"store\":{\"books\":[{\"title\":\"Go in Action\",\"price\":29.99},{\"title\":\"Clean Code\",\"price\":34.99}]}}",
+  "path": "$.store.books[0].title"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": "Go in Action"
+}
+```
+
+**Example call — wildcard**
+
+```json
+{
+  "json": "{\"store\":{\"books\":[{\"title\":\"Go in Action\"},{\"title\":\"Clean Code\"}]}}",
+  "path": "$.store.books[*].title"
+}
+```
+
+**Example response**
+
+```json
+{
+  "result": ["Go in Action", "Clean Code"]
+}
+```
+
+<AccordionGroup>
+  <Accordion title="Supported JSONPath syntax">
+
+| Token | Description |
+|-------|-------------|
+| `$` | Root element (required at start of every path) |
+| `.field` | Access object property named `field` |
+| `[N]` | Access array element at index `N` (zero-based) |
+| `.*` | All values of an object |
+| `[*]` | All elements of an array |
+
+Filter expressions, recursive descent (`..`), and script expressions are not supported.
+
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## data_schema_validate
+
+Validate a JSON document against a JSON Schema. Returns `valid: true` on success, or `valid: false` with a list of human-readable error messages.
+
+<ParamField path="json" type="string" required>
+  JSON document to validate.
+</ParamField>
+
+<ParamField path="schema" type="string" required>
+  JSON Schema document (as a JSON string).
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "json": "{\"name\":\"Alice\",\"age\":30}",
+  "schema": "{\"type\":\"object\",\"required\":[\"name\",\"age\"],\"properties\":{\"name\":{\"type\":\"string\",\"minLength\":2},\"age\":{\"type\":\"number\",\"minimum\":0,\"maximum\":150}}}"
+}
+```
+
+**Example response — valid**
+
+```json
+{
+  "valid": true
+}
+```
+
+**Example response — invalid**
+
+```json
+{
+  "valid": false,
+  "errors": [
+    "$.age: expected type \"number\", got string",
+    "$.name: string length 1 is less than minLength 2"
+  ]
+}
+```
+
+<AccordionGroup>
+  <Accordion title="Supported JSON Schema keywords">
+
+| Category | Supported keywords |
+|----------|--------------------|
+| Any type | `type`, `enum` |
+| String | `minLength`, `maxLength`, `pattern` |
+| Number | `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum` |
+| Object | `required`, `properties`, `additionalProperties` |
+| Array | `items`, `minItems`, `maxItems` |
+
+Keywords not listed above (such as `$ref`, `allOf`, `anyOf`, `oneOf`, `not`) are silently ignored.
+
+  </Accordion>
+</AccordionGroup>
+
+---
+
+## data_diff
+
+Compute a structural diff between two JSON or YAML objects at the top level. Returns three lists: keys added in `b`, keys removed from `a`, and keys whose values changed between the two documents.
+
+<ParamField path="a" type="string" required>
+  First document (the "before" state). Must be a JSON or YAML object.
+</ParamField>
+
+<ParamField path="b" type="string" required>
+  Second document (the "after" state). Must be a JSON or YAML object.
+</ParamField>
+
+<ParamField path="format" type="string" default="json">
+  Input format for both documents. One of: `json`, `yaml`.
+</ParamField>
+
+**Example call**
+
+```json
+{
+  "a": "{\"name\":\"alice\",\"age\":30,\"city\":\"New York\"}",
+  "b": "{\"name\":\"alice\",\"age\":31,\"country\":\"US\"}",
+  "format": "json"
+}
+```
+
+**Example response**
+
+```json
+{
+  "added": ["country"],
+  "removed": ["city"],
+  "changed": [
+    { "key": "age", "from": 30, "to": 31 }
+  ]
+}
+```
+
+<ResponseField name="added" type="string[]">
+  Keys present in `b` but not in `a`.
+</ResponseField>
+
+<ResponseField name="removed" type="string[]">
+  Keys present in `a` but not in `b`.
+</ResponseField>
+
+<ResponseField name="changed" type="object[]">
+  Keys present in both documents with different values.
+
+  <Expandable title="properties">
+    <ResponseField name="key" type="string">
+      The top-level key that changed.
+    </ResponseField>
+    <ResponseField name="from" type="any">
+      The value in document `a`.
+    </ResponseField>
+    <ResponseField name="to" type="any">
+      The value in document `b`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Note>The diff is shallow — only top-level keys are compared. A nested change is reported as a single `changed` entry with the full old and new sub-tree as `from` and `to`.</Note>

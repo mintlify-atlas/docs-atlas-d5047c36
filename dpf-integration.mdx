@@ -1,0 +1,127 @@
+---
+title: "DevPixelForge (dpf) Integration"
+---
+
+DevPixelForge (`dpf`) is a high-performance multimedia processing engine written in Rust. It handles image optimization, format conversion, PDF generation, and video/audio processing. `dpf` is bundled with every DevForge release — you do not need to install it separately.
+
+## What dpf handles
+
+<CardGroup cols={2}>
+  <Card title="Image processing" icon="image">
+    Optimization, format conversion, resize, crop, rotate, watermark, brightness/contrast/saturation adjustments, EXIF operations, LQIP placeholders, color palette reduction, sprite sheet generation, and responsive srcset variants.
+  </Card>
+  <Card title="Document generation" icon="file">
+    Markdown-to-PDF rendering backed by a Typst engine (`glyphweaveforge`). Supports five built-in themes, custom page sizes, inline base64 output, and local asset injection via `resource_files`.
+  </Card>
+  <Card title="Video processing" icon="video">
+    Transcode (h264, h265, vp8, vp9, av1), resize, trim, thumbnail extraction, and web-optimized encoding profiles. Requires FFmpeg in `$PATH`.
+  </Card>
+  <Card title="Audio processing" icon="music">
+    Transcode (mp3, aac, opus, vorbis, flac, wav), loudness normalization to target LUFS, trim by timestamp, and silence removal. Requires FFmpeg in `$PATH`.
+  </Card>
+</CardGroup>
+
+## How devforge-mcp finds dpf
+
+At startup, `devforge-mcp` resolves the dpf binary path using `dpf.ResolveBinaryPath(exeDir)`, where `exeDir` is the directory of the running executable (symlinks resolved):
+
+```go
+dpfPath, err := dpf.ResolveBinaryPath(exeDir)
+```
+
+The resolver checks candidates in this order:
+
+1. `$DEVFORGE_DPF_PATH` environment variable (if set)
+2. `<exe-dir>/dpf`
+3. `<exe-dir>/bin/dpf`
+4. `./bin/dpf` (relative to the working directory)
+
+<Note>
+  The binary path is always resolved by `ResolveBinaryPath()`. DevForge never executes arbitrary user-supplied paths.
+</Note>
+
+When you install via Homebrew, `dpf` is placed next to `devforge-mcp` in the Homebrew prefix, so resolution succeeds automatically.
+
+## FFmpeg dependency
+
+FFmpeg is an **optional** runtime dependency used only by video and audio tools.
+
+```bash
+brew install ffmpeg
+```
+
+Image, document, and all utility tools do not require FFmpeg. If FFmpeg is absent, only the video and audio tool group returns errors.
+
+## What works with and without dpf
+
+<CardGroup cols={2}>
+  <Card title="Requires dpf" icon="circle-check">
+    `optimize_images`, `generate_favicon`, `markdown_to_pdf`, `image_resize`, `image_convert`, `image_crop`, `image_rotate`, `image_watermark`, `image_adjust`, `image_quality`, `image_srcset`, `image_exif`, `image_placeholder`, `image_palette`, `image_sprite`, `video_transcode`, `video_resize`, `video_trim`, `video_thumbnail`, `video_profile`, `audio_normalize`, `audio_transcode`, `audio_trim`, `audio_silence_trim`
+  </Card>
+  <Card title="Works without dpf" icon="circle-minus">
+    All 48 utility tools — every tool in the `textenc`, `datafmt`, `cryptoutil`, `httptools`, `datetime`, `filetools`, `frontend`, `backend`, and `codetools` groups — plus `analyze_layout`, `suggest_layout`, `manage_tokens`, and `suggest_color_palettes`.
+  </Card>
+</CardGroup>
+
+<Warning>
+  If dpf is not found at startup, `devforge-mcp` logs a warning and media tools return errors. All other tools continue to work normally.
+</Warning>
+
+## Subprocess protocol
+
+`devforge-mcp` communicates with dpf using a **streaming JSON protocol over stdin/stdout**. At startup a single `StreamClient` is created and kept alive for the server's lifetime, avoiding per-call process spawn overhead:
+
+```go
+sc, err := dpf.NewStreamClient(dpfPath)
+```
+
+Each job is a newline-terminated JSON object sent to dpf's stdin. The response is a newline-terminated JSON object read from dpf's stdout:
+
+```bash
+# Send a job (streaming mode)
+{"operation":"markdown_to_pdf","markdown_text":"# Hello","inline":true}
+
+# Response
+{"success":true,"operation":"markdown_to_pdf","outputs":[{"data_base64":"...","format":"pdf"}],"elapsed_ms":169}
+```
+
+You can also interact with dpf directly from the shell using its `process`, `--stream`, and `batch` subcommands.
+
+## Checking dpf capabilities
+
+Run `dpf caps` to confirm which operations and features are available in the bundled binary:
+
+```bash
+dpf caps
+```
+
+```json
+{
+  "version": "0.4.2",
+  "operations": ["markdown_to_pdf"],
+  "output_formats": {
+    "document": ["pdf"]
+  },
+  "features": {
+    "markdown_to_pdf": true,
+    "markdown_to_pdf_typst": true,
+    "pdf_inline_output": true,
+    "streaming_mode": true,
+    "parallel_batch": true
+  }
+}
+```
+
+<Tip>
+  Use `dpf caps` in CI or at integration startup to assert the exact binary version and feature flags before running jobs.
+</Tip>
+
+## Updating the bundled dpf binary
+
+To update the local `bin/dpf` to the latest DevPixelForge release, run the provided install script:
+
+```bash
+bash scripts/install-dpf.sh
+```
+
+CI fetches the latest dpf automatically when building a tagged release, so published Homebrew formulae always ship the correct pairing.

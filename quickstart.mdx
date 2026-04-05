@@ -1,80 +1,89 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: 'Quick start'
+description: 'Make your first DevForge tool call in under 2 minutes.'
+keywords: ['devforge', 'quickstart', 'mcp', 'first tool call', 'crypto_hash']
 ---
 
-## Get started in three steps
+This guide gets you from zero to your first tool call in under 2 minutes.
 
-Get your documentation site running locally and make your first customization.
+<Tip>
+  All 48 utility tools work without any API key or network connection.
+</Tip>
 
-### Step 1: Set up your local environment
+<Steps>
+  <Step title="Install via Homebrew">
+    ```bash
+    brew install GustavoGutierrez/devforge/devforge
+    ```
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+    This installs `devforge`, `devforge-mcp`, and `dpf` and creates a starter config at `~/.config/devforge/config.json`.
 
-### Step 2: Deploy your changes
+    See [Installation](/installation) for source build instructions and platform notes.
+  </Step>
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+  <Step title="Verify the installation">
+    Run `devforge-mcp` with the version flag to confirm it is installed correctly:
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    ```bash
+    devforge-mcp --version
+    ```
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    `devforge-mcp` is a stdio MCP server — it does not expose an HTTP port. When started by an MCP client, it reads JSON-RPC messages from stdin and writes responses to stdout.
+  </Step>
 
-### Step 3: Go live
+  <Step title="Connect to an MCP client">
+    Add the following entry to your MCP client configuration. For Claude Desktop this is `claude_desktop_config.json`; for Cursor it is your MCP settings file.
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+    ```json
+    {
+      "mcpServers": {
+        "devforge": {
+          "command": "/path/to/devforge-mcp",
+          "args": [],
+          "env": {}
+        }
+      }
+    }
+    ```
+
+    Replace `/path/to/devforge-mcp` with the actual binary path. Run `which devforge-mcp` to find it.
+
+    See [MCP client setup](/mcp-setup) for platform-specific instructions and tips for Claude Desktop, Cursor, and other clients.
+  </Step>
+
+  <Step title="Make your first tool call">
+    Once your MCP client is connected, call `crypto_hash` to hash a string. This tool is stateless, requires no API key, and works offline — a reliable first test.
+
+    ```json
+    {
+      "name": "crypto_hash",
+      "arguments": {
+        "input": "hello world",
+        "algorithm": "sha256",
+        "encoding": "hex"
+      }
+    }
+    ```
+
+    The tool returns the SHA-256 hex digest of the input string.
+  </Step>
+
+  <Step title="Try another tool">
+    Call `text_uuid` to generate a random UUID. This tool takes no arguments:
+
+    ```json
+    {
+      "name": "text_uuid",
+      "arguments": {}
+    }
+    ```
+
+    You should receive a freshly generated UUID v4 in the response.
+  </Step>
+</Steps>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+- Browse the full tool reference to see all 48 utility tools and the media processing suite
+- Set a `gemini_api_key` in `~/.config/devforge/config.json` to enable AI-powered tools like `generate_ui_image` and `suggest_color_palettes`
+- Use the `devforge` CLI/TUI for the same tools directly in your terminal without an MCP client

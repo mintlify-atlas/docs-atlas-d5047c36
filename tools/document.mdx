@@ -1,0 +1,255 @@
+---
+title: "Document tools"
+description: "Convert Markdown to PDF with themes, custom page sizes, and flexible input/output modes using the dpf engine."
+---
+
+<Note>
+  `markdown_to_pdf` requires the `dpf` binary to be installed alongside the `devforge-mcp` server. Run `bash scripts/install-dpf.sh` from the repository root to install it, or download a release bundle which includes `bin/dpf` pre-bundled.
+</Note>
+
+---
+
+## markdown\_to\_pdf
+
+Converts a Markdown document to a styled PDF. You can provide Markdown from a file path, as an inline string, or as base64-encoded bytes. The output can be written to a file, a directory, or returned inline as base64 data.
+
+### Input modes
+
+Exactly one input source is required per call:
+
+| Field | Description |
+|---|---|
+| `input` | Path to a `.md` file on disk |
+| `markdown_text` | Inline UTF-8 Markdown string |
+| `markdown_base64` | Base64-encoded UTF-8 Markdown string |
+
+### Output modes
+
+At least one output mode is required:
+
+| Field | Description |
+|---|---|
+| `output` | Explicit output PDF file path |
+| `output_dir` | Write PDF into this directory; combine with `file_name` to control the filename |
+| `inline: true` | Return base64-encoded PDF bytes in the response instead of writing a file |
+
+### Parameters
+
+<Accordion title="Input parameters">
+  <ParamField body="input" type="string">
+    Path to a Markdown file on disk. Mutually exclusive with `markdown_text` and `markdown_base64`.
+  </ParamField>
+
+  <ParamField body="markdown_text" type="string">
+    Inline UTF-8 Markdown source. Mutually exclusive with `input` and `markdown_base64`.
+  </ParamField>
+
+  <ParamField body="markdown_base64" type="string">
+    Base64-encoded UTF-8 Markdown source. Useful when passing binary-safe content over MCP. Mutually exclusive with `input` and `markdown_text`.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Output parameters">
+  <ParamField body="output" type="string">
+    Explicit output PDF file path (for example `/reports/invoice-2025-06.pdf`).
+  </ParamField>
+
+  <ParamField body="output_dir" type="string">
+    Directory to write the PDF into. When using `markdown_text` or `markdown_base64`, you must also provide `file_name`.
+  </ParamField>
+
+  <ParamField body="file_name" type="string">
+    Output filename used with `output_dir`. For example `"report.pdf"`.
+  </ParamField>
+
+  <ParamField body="inline" type="boolean">
+    When `true`, the PDF is returned as `data_base64` in the response instead of being written to disk. Defaults to `false`.
+  </ParamField>
+</Accordion>
+
+<Accordion title="Page layout parameters">
+  <ParamField body="page_size" type="string">
+    Standard page size. One of `a4`, `letter`, or `legal`. Mutually exclusive with `page_width_mm` / `page_height_mm`.
+  </ParamField>
+
+  <ParamField body="page_width_mm" type="number">
+    Custom page width in millimeters. Must be provided together with `page_height_mm`.
+  </ParamField>
+
+  <ParamField body="page_height_mm" type="number">
+    Custom page height in millimeters. Must be provided together with `page_width_mm`.
+  </ParamField>
+
+  <ParamField body="layout_mode" type="string">
+    PDF layout mode. One of `paged` (multiple pages, default) or `single_page` (render entire document as one tall page).
+  </ParamField>
+</Accordion>
+
+<Accordion title="Theme parameters">
+  <ParamField body="theme" type="string">
+    Named theme to apply. One of `invoice`, `scientific_article`, `professional`, `engineering`, or `informational`.
+  </ParamField>
+
+  <ParamField body="theme_config" type="object">
+    Key/value overrides forwarded to dpf to customize the selected theme. Available keys depend on the theme.
+  </ParamField>
+
+  <ParamField body="resource_files" type="object">
+    Mapping of `href` strings to local file paths, used to inline assets (images, fonts) referenced in the Markdown. For example `{ "./logo.png": "/absolute/path/logo.png" }`.
+  </ParamField>
+</Accordion>
+
+---
+
+### Example 1: convert a file to PDF
+
+The simplest usage — read a Markdown file from disk and write a PDF next to it.
+
+```json
+{
+  "name": "markdown_to_pdf",
+  "arguments": {
+    "input": "/project/docs/readme.md",
+    "output": "/project/docs/readme.pdf"
+  }
+}
+```
+
+**Response**
+
+```json
+{
+  "success": true,
+  "operation": "markdown_to_pdf",
+  "outputs": [
+    {
+      "path": "/project/docs/readme.pdf",
+      "format": "pdf",
+      "size_bytes": 84320
+    }
+  ],
+  "elapsed_ms": 620
+}
+```
+
+---
+
+### Example 2: inline Markdown text
+
+Pass Markdown content directly as a string. Requires `file_name` when using `output_dir`.
+
+```json
+{
+  "name": "markdown_to_pdf",
+  "arguments": {
+    "markdown_text": "# Quarterly Report\n\n## Summary\n\nRevenue grew **24%** year-over-year.\n\n- Q1: $1.2M\n- Q2: $1.5M\n- Q3: $1.8M\n- Q4: $2.1M\n",
+    "output_dir": "/project/reports",
+    "file_name": "q4-summary.pdf"
+  }
+}
+```
+
+**Response**
+
+```json
+{
+  "success": true,
+  "operation": "markdown_to_pdf",
+  "outputs": [
+    {
+      "path": "/project/reports/q4-summary.pdf",
+      "format": "pdf",
+      "size_bytes": 42100
+    }
+  ],
+  "elapsed_ms": 480
+}
+```
+
+---
+
+### Example 3: custom theme and page size
+
+Apply a named theme with a non-standard page size and theme color overrides.
+
+```json
+{
+  "name": "markdown_to_pdf",
+  "arguments": {
+    "input": "/project/proposals/sow-acme.md",
+    "output": "/project/proposals/sow-acme.pdf",
+    "theme": "professional",
+    "page_size": "letter",
+    "layout_mode": "paged",
+    "theme_config": {
+      "accent_color": "#6366f1",
+      "font_family": "Inter",
+      "header_logo": "./logo.png"
+    },
+    "resource_files": {
+      "./logo.png": "/project/assets/logo.png"
+    }
+  }
+}
+```
+
+**Response**
+
+```json
+{
+  "success": true,
+  "operation": "markdown_to_pdf",
+  "outputs": [
+    {
+      "path": "/project/proposals/sow-acme.pdf",
+      "format": "pdf",
+      "size_bytes": 198440
+    }
+  ],
+  "elapsed_ms": 910,
+  "metadata": {
+    "theme": "professional",
+    "page_size": "letter",
+    "pages": 4
+  }
+}
+```
+
+---
+
+### Example 4: inline base64 output
+
+Return the PDF as base64 data in the response without writing to disk. Useful when you want to pipe the PDF into another tool or send it directly over an API.
+
+```json
+{
+  "name": "markdown_to_pdf",
+  "arguments": {
+    "markdown_text": "# Invoice #1042\n\n**Date:** 2025-06-01\n\n| Item | Qty | Price |\n|---|---|---|\n| Design work | 10h | $1,500 |\n| Development | 20h | $4,000 |\n\n**Total: $5,500**\n",
+    "inline": true,
+    "theme": "invoice",
+    "page_size": "a4"
+  }
+}
+```
+
+**Response**
+
+```json
+{
+  "success": true,
+  "operation": "markdown_to_pdf",
+  "outputs": [
+    {
+      "format": "pdf",
+      "size_bytes": 31760,
+      "data_base64": "JVBERi0xLjQKJeLjz9MKNCAwIG9iago8..."
+    }
+  ],
+  "elapsed_ms": 390
+}
+```
+
+<Tip>
+  When using `inline: true`, decode the `data_base64` field with any standard base64 decoder to recover the raw PDF bytes.
+</Tip>
